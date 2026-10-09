@@ -5301,7 +5301,7 @@
   <div id="keybinds-menu" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 16, 0.95); backdrop-filter: blur(8px); z-index: 250; flex-direction: column; align-items: center; justify-content: center;">
     <h1 class="main-title" style="font-size: 40px; margin-bottom: 30px;">CUSTOM KEYBINDS</h1>
     <div id="keybinds-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px;"></div>
-    <div id="keybind-prompt" style="display:none; color: #ff3366; font-size: 24px; font-weight: bold; margin-bottom: 20px; animation: pulse-danger 0.5s infinite alternate;">PRESS ANY KEY...</div>
+    <div id="keybind-prompt" style="display:none; color: #ff3366; font-size: 24px; font-weight: bold; margin-bottom: 20px; animation: pulse-danger 0.5s infinite alternate;">PRESS ANY KEY OR CONTROLLER BUTTON...</div>
     <button class="menu-btn" onclick="closeKeybinds()">BACK TO MENU</button>
   </div>
 
@@ -5962,9 +5962,30 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.118';
+    const GAME_VERSION = '1.120';
 
     const PATCH_NOTES = [
+      {
+        version: '1.120',
+        date: '9 Oct 2026',
+        title: 'Bumpers and triggers join the controller layout',
+        changes: [
+          { tag: 'new', text: '<b>Both shoulder buttons (LB/RB) now hold a piece</b>, alongside Y, and <b>both triggers (LT/RT) now hard drop</b>, alongside D-pad up - extra ways to reach the two actions your thumb has to leave the stick for, without losing the original buttons.' },
+          { tag: 'change', text: 'The rebind UI can hold up to 5 keys/buttons per action now (was 3), so hold and hard drop have room for all of their defaults plus still fit one more of your own on top if you want it.' }
+        ]
+      },
+      {
+        version: '1.119',
+        date: '9 Oct 2026',
+        title: 'Controller support, and VS Online gets faster and more honest',
+        changes: [
+          { tag: 'new', text: '<b>Xbox controller support.</b> A = rotate CCW, B = rotate CW, Y = hold, D-pad or the left stick moves, D-pad up hard drops, D-pad down soft drops. Every button is rebindable from Settings exactly like a keyboard key - just press it while binding.' },
+          { tag: 'new', text: '<b>The on-screen control hints switch to your controller\'s own buttons</b> the moment one is connected (A/B/Y and the D-pad glyphs instead of keyboard caps), and switch back the moment it is not.' },
+          { tag: 'fix', text: '<b>VS Online\'s incoming-garbage strip was showing the wrong thing</b> - it was only ever sent a count of how many chunks were queued, not each chunk\'s real size or how close it was to landing, so the bar on the opponent\'s mirror board was both the wrong height and never actually showed the red "about to land" warning. It now carries the real queue across.' },
+          { tag: 'change', text: '<b>VS Online feels less laggy.</b> The opponent\'s board was only updating about 10 times a second; it is closer to 20 now, which reads as noticeably smoother during a fast soft-drop or DAS slide.' },
+          { tag: 'new', text: '<b>Each board in VS Online now renders in whatever theme its own player actually picked</b> - your board stays in your theme, the opponent\'s board (blocks, hold, next queue, all of it) renders in theirs, instead of both boards being forced into your own.' }
+        ]
+      },
       {
         version: '1.118',
         date: '9 Oct 2026',
@@ -8030,29 +8051,42 @@
     // Every action can have more than one key bound to it - each entry is
     // an ARRAY of codes, not a single code, so e.g. rotate can answer to
     // both a letter key and an arrow key at once.
+    // Gamepad buttons (GpA/GpB/GpY/GpLeft/GpRight/GpUp/GpDown) are bound
+    // right alongside real keyboard codes here, not as a separate system -
+    // pollGamepad() synthesizes the exact same KeyboardEvent-shaped keydown/
+    // keyup the real keys already dispatch, so every single thing that
+    // already reads these arrays (movement, DAS, rebinding, the ghost-keys
+    // overlay) works for a controller for free.
+    // Up to MAX_BINDS_PER_ACTION codes per action (see renderKeybinds) -
+    // hold and hard drop each carry a keyboard key, a face button, AND both
+    // shoulder buttons/triggers, so that cap has to fit 4.
     let customBinds = {
-      left: ['ArrowLeft'],
-      right: ['ArrowRight'],
-      down: ['ArrowDown'],
-      rotateCw: ['ArrowUp'],
-      rotateCcw: ['KeyZ'],
+      left: ['ArrowLeft', 'GpLeft'],
+      right: ['ArrowRight', 'GpRight'],
+      down: ['ArrowDown', 'GpDown'],
+      rotateCw: ['ArrowUp', 'GpB'],
+      rotateCcw: ['KeyZ', 'GpA'],
       rotate180: ['KeyV'],
-      hardDrop: ['Space'],
+      hardDrop: ['Space', 'GpUp', 'GpLT', 'GpRT'],
       sonicDrop: ['ShiftLeft'],
-      hold: ['KeyC']
+      hold: ['KeyC', 'GpY', 'GpLB', 'GpRB']
     };
+    // Shared with renderKeybinds (the rebind UI's own per-action "+" cap)
+    // and migrateBinds (loadSettings' backfill of new defaults onto an
+    // older save) - one number both agree on.
+    const MAX_BINDS_PER_ACTION = 5;
     // Puyo gets its own keybind set instead of borrowing tetris's - the
     // classic Puyo layout rotates with Z/X, and the two modes have nothing
     // else in common control-wise (no hold, no hard drop, down is just
     // "fall faster" rather than a lock). Up-arrow still also works for
     // clockwise, same as it always has everywhere else.
     let puyoBinds = {
-      left: ['ArrowLeft'],
-      right: ['ArrowRight'],
-      down: ['ArrowDown'],
-      rotateCcw: ['KeyZ'],
-      rotateCw: ['KeyX', 'ArrowUp'],
-      turbo: ['Space']
+      left: ['ArrowLeft', 'GpLeft'],
+      right: ['ArrowRight', 'GpRight'],
+      down: ['ArrowDown', 'GpDown'],
+      rotateCcw: ['KeyZ', 'GpA'],
+      rotateCw: ['KeyX', 'ArrowUp', 'GpB'],
+      turbo: ['Space', 'GpY']
     };
     let bindingAction = null;
     let bindingScope = 'tetris';
@@ -8621,9 +8655,15 @@
                 sequence: (p.sequence || []).slice(0, 5),
                 score: p.score, lines: p.lines, level: p.level,
                 combo: p.combo, b2b: p.b2b,
-                garbageQueueLen: p.garbageQueue.length,
+                // The real chunks, not just a count - each one's actual
+                // lines/timer is what the garbage-queue strip's height and
+                // ready-to-land colour are drawn from (see renderPlayer).
+                // A synthesized placeholder queue was rendering as flatter
+                // and permanently "just queued" colored, never maturing.
+                garbageQueue: p.garbageQueue,
                 inDanger: p.inDanger,
-                gameOver: p.gameOver
+                gameOver: p.gameOver,
+                theme: currentTheme
             }
         });
     }
@@ -8642,8 +8682,9 @@
         p2.sequence = payload.sequence || [];
         p2.score = payload.score; p2.lines = payload.lines; p2.level = payload.level;
         p2.combo = payload.combo; p2.b2b = payload.b2b;
-        p2.garbageQueue = new Array(payload.garbageQueueLen || 0).fill(0).map(() => ({ lines: 1, timer: 0 }));
+        p2.garbageQueue = payload.garbageQueue || [];
         p2.inDanger = payload.inDanger;
+        p2.mirrorTheme = payload.theme;
         updateStatsUI(p2);
         drawHold(p2);
         drawNext(p2);
@@ -8727,11 +8768,28 @@
         // Older saves stored one code per action (a plain string) instead
         // of an array - wrap those up so they still load correctly instead
         // of silently breaking every rebind check against them.
+        // defaults is the literal object above (before this save overwrites
+        // it) - captured per-action so a save from before gamepad support
+        // existed still gets the new GpX default backfilled onto whichever
+        // action it belongs to, same as a brand new profile would have.
+        // A save that already has ANY gamepad code on that action (meaning
+        // the player has actually touched it since) is left alone.
         function migrateBinds(target, saved) {
           if (!saved) return;
+          const defaults = {};
+          for (const key in target) defaults[key] = target[key].slice();
           for (const key in saved) {
             if (!(key in target)) continue;
             target[key] = Array.isArray(saved[key]) ? saved[key].slice() : [saved[key]];
+          }
+          // Backfill every default gamepad code this action is supposed to
+          // have (hold/hardDrop now carry 2 each - a face button plus both
+          // shoulder buttons/triggers) that the saved array doesn't already
+          // have, up to the shared cap - not just the first one found.
+          for (const key in defaults) {
+            defaults[key].filter(c => c.indexOf('Gp') === 0).forEach(gp => {
+              if (!target[key].includes(gp) && target[key].length < MAX_BINDS_PER_ACTION) target[key].push(gp);
+            });
           }
         }
         migrateBinds(customBinds, data.customBinds);
@@ -11080,6 +11138,74 @@
     // charging again until it reaches 0 (see DCD above).
     const dasCutTimer = { left: 0, right: 0 };
     let lastDir = null;
+
+    // ================================================================
+    // GAMEPAD INPUT
+    // A connected controller is read every animation frame and translated
+    // into the exact same synthetic KeyboardEvents a real key press already
+    // produces (same .code strings, routed through the normal document
+    // keydown/keyup listeners) - so DAS, rebinding, the ghost-keys overlay
+    // and every other thing already built around customBinds/puyoBinds
+    // works for a controller without a second, parallel input system.
+    // Default mapping (see customBinds/puyoBinds above): A = rotate CCW,
+    // B = rotate CW, Y = hold, D-pad/left stick = move, D-pad up = hard
+    // drop, D-pad down = soft drop.
+    let gpConnected = false;
+    let gpPrevPressed = {};
+    const GAMEPAD_BUTTON_MAP = {
+        0: 'GpA', 1: 'GpB', 3: 'GpY',
+        4: 'GpLB', 5: 'GpRB', 6: 'GpLT', 7: 'GpRT',
+        12: 'GpUp', 13: 'GpDown', 14: 'GpLeft', 15: 'GpRight'
+    };
+    const GP_STICK_DEADZONE = 0.5;
+
+    window.addEventListener('gamepadconnected', () => { gpConnected = true; buildGhostKeys(); });
+    window.addEventListener('gamepaddisconnected', () => {
+        // Release anything still held so a controller unplugged mid-move
+        // doesn't leave the piece sliding/soft-dropping forever.
+        Object.keys(gpPrevPressed).forEach(code => {
+            if (gpPrevPressed[code]) document.dispatchEvent(new KeyboardEvent('keyup', { code }));
+        });
+        gpPrevPressed = {};
+        gpConnected = false;
+        buildGhostKeys();
+    });
+
+    function pollGamepad() {
+        if (!navigator.getGamepads) return;
+        const pads = navigator.getGamepads();
+        let pad = null;
+        for (let i = 0; i < pads.length; i++) { if (pads[i]) { pad = pads[i]; break; } }
+        if (!pad) return;
+
+        const pressed = {};
+        for (const idx in GAMEPAD_BUTTON_MAP) {
+            const btn = pad.buttons[idx];
+            pressed[GAMEPAD_BUTTON_MAP[idx]] = !!(btn && btn.pressed);
+        }
+        // The left stick doubles for D-pad left/right (not up/down - those
+        // stay D-pad only, so stick drift can never fire an accidental hard
+        // drop).
+        const stickX = pad.axes[0] || 0;
+        if (!pressed.GpLeft) pressed.GpLeft = stickX < -GP_STICK_DEADZONE;
+        if (!pressed.GpRight) pressed.GpRight = stickX > GP_STICK_DEADZONE;
+
+        Object.keys(pressed).forEach(code => {
+            const was = !!gpPrevPressed[code];
+            const now = pressed[code];
+            if (now && !was) document.dispatchEvent(new KeyboardEvent('keydown', { code }));
+            else if (!now && was) document.dispatchEvent(new KeyboardEvent('keyup', { code }));
+        });
+        gpPrevPressed = pressed;
+    }
+
+    // Its own always-running loop, independent of gameLoop (which only
+    // exists during an actual match) - a controller has to work for
+    // rebinding a button from the Settings menu too, not just mid-game.
+    (function gamepadPollLoop() {
+        requestAnimationFrame(gamepadPollLoop);
+        pollGamepad();
+    })();
 
     let gameMode = 'survival';
     let botDifficulty = 5;
@@ -19755,7 +19881,10 @@
       }
     }
 
-    function drawThemeBlock(ctx, r, c, color, gridScale=grid) {
+    // theme defaults to your own currentTheme, but VS Online's mirror board
+    // passes the opponent's actual theme instead (see renderPlayer/
+    // renderBufferZone's pTheme) - every other caller is unaffected.
+    function drawThemeBlock(ctx, r, c, color, gridScale=grid, theme=currentTheme) {
       let px = c * gridScale;
       let py = r * gridScale;
       // Garbage is deliberately a dull, low-key colour in most themes so it
@@ -19765,7 +19894,7 @@
       // on garbage specifically (below), on top of whatever it draws here.
       const isGarbage = color === colors['G'];
 
-      if (currentTheme === 'neon') {
+      if (theme === 'neon') {
          ctx.shadowBlur = 10; ctx.shadowColor = color;
          ctx.strokeStyle = color; ctx.lineWidth = 2;
          ctx.strokeRect(px+2, py+2, gridScale-4, gridScale-4);
@@ -19773,7 +19902,7 @@
          ctx.fillStyle = color; ctx.globalAlpha = 0.15;
          ctx.fillRect(px+2, py+2, gridScale-4, gridScale-4);
          ctx.globalAlpha = 1.0;
-      } else if (currentTheme === 'cyberpunk') {
+      } else if (theme === 'cyberpunk') {
          ctx.fillStyle = '#050510';
          ctx.fillRect(px, py, gridScale, gridScale);
          ctx.shadowBlur = 6; ctx.shadowColor = color;
@@ -19783,7 +19912,7 @@
          ctx.fillStyle = color;
          ctx.fillRect(px+2, py+2, 5, 2); ctx.fillRect(px+2, py+2, 2, 5);
          ctx.fillRect(px+gridScale-7, py+gridScale-4, 5, 2); ctx.fillRect(px+gridScale-4, py+gridScale-7, 2, 5);
-      } else if (currentTheme === 'slime') {
+      } else if (theme === 'slime') {
          ctx.fillStyle = color;
          ctx.beginPath();
          if(ctx.roundRect) ctx.roundRect(px, py, gridScale, gridScale, 10);
@@ -19798,7 +19927,7 @@
          ctx.beginPath();
          ctx.ellipse(px + gridScale*0.3, py + gridScale*0.25, gridScale*0.15, gridScale*0.08, -0.2, 0, Math.PI*2);
          ctx.fill();
-      } else if (currentTheme === 'paint') {
+      } else if (theme === 'paint') {
          ctx.fillStyle = color;
          ctx.fillRect(px, py, gridScale, gridScale);
          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
@@ -19808,13 +19937,13 @@
          ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
          ctx.lineWidth = 2;
          ctx.strokeRect(px + 1, py + 1, gridScale - 2, gridScale - 2);
-      } else if (currentTheme === 'clouds') {
+      } else if (theme === 'clouds') {
          ctx.fillStyle = color;
          ctx.beginPath();
          if(ctx.roundRect) ctx.roundRect(px + 1, py + 1, gridScale - 2, gridScale - 2, 8);
          else ctx.rect(px + 1, py + 1, gridScale - 2, gridScale - 2);
          ctx.fill();
-      } else if (currentTheme === 'steampunk') {
+      } else if (theme === 'steampunk') {
          ctx.fillStyle = color;
          ctx.fillRect(px, py, gridScale, gridScale);
          ctx.strokeStyle = '#1a1a1a';
@@ -19825,7 +19954,7 @@
          ctx.fillRect(px+gridScale-5, py+3, 2, 2);
          ctx.fillRect(px+3, py+gridScale-5, 2, 2);
          ctx.fillRect(px+gridScale-5, py+gridScale-5, 2, 2);
-      } else if (currentTheme === 'water') {
+      } else if (theme === 'water') {
          ctx.fillStyle = color;
          ctx.globalAlpha = 0.7;
          ctx.beginPath();
@@ -19843,7 +19972,7 @@
          ctx.beginPath();
          ctx.arc(px + gridScale*0.7, py + gridScale*0.75, gridScale*0.1, 0, Math.PI*2);
          ctx.fill();
-      } else if (currentTheme === 'gems') {
+      } else if (theme === 'gems') {
          ctx.fillStyle = color;
          ctx.fillRect(px, py, gridScale, gridScale);
 
@@ -19864,7 +19993,7 @@
 
          ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
          ctx.fillRect(px+gridScale/2, py+gridScale/2, gridScale/2 - 5, gridScale/2 - 5);
-      } else if (currentTheme === 'wood') {
+      } else if (theme === 'wood') {
          ctx.fillStyle = color;
          ctx.fillRect(px, py, gridScale, gridScale);
 
@@ -19883,7 +20012,7 @@
          ctx.moveTo(px + 6, py + gridScale*0.25); ctx.lineTo(px + gridScale - 6, py + gridScale*0.35);
          ctx.moveTo(px + 6, py + gridScale*0.6); ctx.lineTo(px + gridScale - 6, py + gridScale*0.7);
          ctx.stroke();
-      } else if (currentTheme === 'classicV2') {
+      } else if (theme === 'classicV2') {
          // Fifth attempt: pixel-sampled directly from a 10x zoom of the
          // reference's "MONNETIC TECH" cells. Two things were actually wrong
          // before, not just "needs more polish": there was a 2px inset gap
@@ -19961,8 +20090,13 @@
     }
 
     // slotX / slotW let the NEXT queue lay pieces out horizontally in compact mode.
-    function drawMini(ctx, name, oy=0, gray=false, gSize=20, slotHeight=null, slotX=0, slotW=null, matOverride=null) {
+    // themeOverride/colorsOverride let VS Online's mirror board draw the
+    // Hold/Next previews in the opponent's actual theme (see drawHold/
+    // drawNext) instead of always falling back to your own currentTheme.
+    function drawMini(ctx, name, oy=0, gray=false, gSize=20, slotHeight=null, slotX=0, slotW=null, matOverride=null, themeOverride=null, colorsOverride=null) {
       if(!name) return;
+      const theme = themeOverride || currentTheme;
+      const col = colorsOverride || colors;
       // Boss mode's cursed pieces (see makeCursedPentomino) pass their own
       // exact 5-cell matrix through here so HOLD/NEXT actually show the
       // welded extra cell instead of silently drawing the plain 4-cell
@@ -19974,10 +20108,10 @@
       let ox = slotX + (sW - mat[0].length*gSize)/2;
       let o_y = oy + (sH - mat.length*gSize)/2;
 
-      let baseColor = gray ? '#555566' : colors[name];
+      let baseColor = gray ? '#555566' : col[name];
       ctx.save();
 
-      if (currentTheme === 'glass') {
+      if (theme === 'glass') {
           let blocks = [];
           for(let r=0; r<mat.length; r++) {
               for(let c=0; c<mat[r].length; c++) {
@@ -19989,7 +20123,7 @@
           ctx.translate(ox, o_y);
           for(let r=0; r<mat.length; r++) {
              for(let c=0; c<mat[r].length; c++) {
-                if(mat[r][c]) drawThemeBlock(ctx, r, c, baseColor, gSize);
+                if(mat[r][c]) drawThemeBlock(ctx, r, c, baseColor, gSize, theme);
              }
           }
       }
@@ -19998,7 +20132,12 @@
 
     function drawHold(p) {
       p.holdCtx.clearRect(0,0,p.holdCtx.canvas.width, p.holdCtx.canvas.height);
-      if(p.heldPiece) drawMini(p.holdCtx, p.heldPiece, 0, !p.canHold, holdGrid, p.holdCtx.canvas.height, 0, null, p.heldPieceMat);
+      // VS Online's mirror board draws in the OPPONENT's actual theme (see
+      // mirrorTheme/vsOnlineHandleState) - everyone else just falls back to
+      // your own currentTheme/colors via drawMini's own defaults.
+      const pTheme = (p.isOnlineMirror && p.mirrorTheme) ? p.mirrorTheme : null;
+      const pColors = pTheme ? THEMES[pTheme] : null;
+      if(p.heldPiece) drawMini(p.holdCtx, p.heldPiece, 0, !p.canHold, holdGrid, p.holdCtx.canvas.height, 0, null, p.heldPieceMat, pTheme, pColors);
     }
 
     function setDangerState(p, active) {
@@ -20015,6 +20154,9 @@
       const cv = p.nextCtx.canvas;
       p.nextCtx.clearRect(0, 0, cv.width, cv.height);
 
+      const pTheme = (p.isOnlineMirror && p.mirrorTheme) ? p.mirrorTheme : null;
+      const pColors = pTheme ? THEMES[pTheme] : null;
+
       if (compactQueue) {
           // Phone layout: slots side by side in a short, wide strip. In VS the
           // opponent monitor sits over the right end of this strip, so the queue
@@ -20025,7 +20167,7 @@
           const slotW = usable / slots;
           const g = 9;
           for (let i = 0; i < slots; i++) {
-              if (p.sequence[i]) drawMini(p.nextCtx, p.sequence[i], 0, false, g, cv.height, i * slotW, slotW, p.sequenceCursedMat && p.sequenceCursedMat[i]);
+              if (p.sequence[i]) drawMini(p.nextCtx, p.sequence[i], 0, false, g, cv.height, i * slotW, slotW, p.sequenceCursedMat && p.sequenceCursedMat[i], pTheme, pColors);
           }
           return;
       }
@@ -20033,7 +20175,7 @@
       const topPadding = 16;
       let containerH = (cv.height - topPadding) / 5;
       for(let i=0; i<5; i++) {
-          if(p.sequence[i]) drawMini(p.nextCtx, p.sequence[i], topPadding + i*containerH, false, nextGrid, containerH, 0, null, p.sequenceCursedMat && p.sequenceCursedMat[i]);
+          if(p.sequence[i]) drawMini(p.nextCtx, p.sequence[i], topPadding + i*containerH, false, nextGrid, containerH, 0, null, p.sequenceCursedMat && p.sequenceCursedMat[i], pTheme, pColors);
       }
     }
 
@@ -20285,6 +20427,14 @@
     function ghostKeyGlyph(code) {
       if (!code) return '?';
       if (code === 'Space') return 'SPACE';
+      if (code.indexOf('Gp') === 0) {
+        const n = code.slice(2);
+        if (n === 'Left')  return String.fromCharCode(0x25C0);
+        if (n === 'Right') return String.fromCharCode(0x25B6);
+        if (n === 'Up')    return String.fromCharCode(0x25B2);
+        if (n === 'Down')  return String.fromCharCode(0x25BC);
+        return n.toUpperCase();
+      }
       let name = code.replace('Key', '').replace('Digit', '').replace('Arrow', '').toUpperCase();
       if (name === 'LEFT')  return String.fromCharCode(0x25C0);
       if (name === 'RIGHT') return String.fromCharCode(0x25B6);
@@ -20330,7 +20480,17 @@
           const bindKey = (puyo && act.puyoBind) ? act.puyoBind : act.bind;
           const cap = document.createElement('div');
           cap.className = 'gk-cap';
-          const codes = binds[bindKey] || [];
+          // A connected controller is what you're actually pressing, so the
+          // overlay shows ONLY its glyphs then (not a cluttered keyboard+pad
+          // mix) - and falls back to the keyboard codes the moment nothing's
+          // connected, same as it always has.
+          let codes = binds[bindKey] || [];
+          if (gpConnected) {
+            const gpCodes = codes.filter(c => c.indexOf('Gp') === 0);
+            if (gpCodes.length) codes = gpCodes;
+          } else {
+            codes = codes.filter(c => c.indexOf('Gp') !== 0);
+          }
           cap.textContent = codes.length ? codes.map(ghostKeyGlyph).join('/') : '?';
           const lbl = document.createElement('div');
           lbl.className = 'gk-lbl';
@@ -20471,6 +20631,13 @@
       let ctx = p.ctx;
       ctx.clearRect(0, 0, 340, 640); ctx.save();
 
+      // VS Online's mirror board renders in the opponent's OWN theme (see
+      // mirrorTheme, set from their broadcast state) instead of whatever
+      // theme you yourself picked - every other mode/player falls back to
+      // the normal global currentTheme/colors unchanged.
+      const pTheme = (p.isOnlineMirror && p.mirrorTheme && THEMES[p.mirrorTheme]) ? p.mirrorTheme : currentTheme;
+      const pColors = THEMES[pTheme] || colors;
+
       drawBoardBeatPulse(p, ctx);
 
       let dx=0, dy = 0;
@@ -20527,7 +20694,7 @@
       ctx.translate(dx + 20 + 170, dy + 320);
       ctx.translate(-170, -320);
 
-      ctx.strokeStyle = p.inDanger ? '#181818' : (currentTheme === 'cyberpunk' ? '#112' : '#222');
+      ctx.strokeStyle = p.inDanger ? '#181818' : (pTheme === 'cyberpunk' ? '#112' : '#222');
       ctx.lineWidth = 1;
       for (let i=0; i<=10; i++) { ctx.beginPath(); ctx.moveTo(i*grid,0); ctx.lineTo(i*grid, 640); ctx.stroke(); }
       // Start at 1: a line across y=0 would redraw the top edge we just removed.
@@ -20579,7 +20746,7 @@
       }
       ctx.globalAlpha = 1.0;
 
-      if (currentTheme === 'glass') {
+      if (pTheme === 'glass') {
           let blocks = [];
           for(let r=0; r<20; r++) {
               for(let c=0; c<10; c++) {
@@ -20595,14 +20762,14 @@
           });
 
           for(let val in grouped) {
-              drawConnectedGlass(ctx, grouped[val], val === 'G' ? '#555566' : colors[val], grid, 0, 0);
+              drawConnectedGlass(ctx, grouped[val], val === 'G' ? '#555566' : pColors[val], grid, 0, 0);
           }
       } else {
           for (let r=0; r<20; r++) {
               for (let c=0; c<10; c++) {
                   if (p.playfield[r][c]) {
-                      drawThemeBlock(ctx, r, c, colors[p.playfield[r][c]]);
-                      if (p.playfield[r][c] === 'G' && currentTheme !== 'paint' && currentTheme !== 'clouds' && currentTheme !== 'slime' && currentTheme !== 'water' && currentTheme !== 'gems' && currentTheme !== 'wood') {
+                      drawThemeBlock(ctx, r, c, pColors[p.playfield[r][c]], grid, pTheme);
+                      if (p.playfield[r][c] === 'G' && pTheme !== 'paint' && pTheme !== 'clouds' && pTheme !== 'slime' && pTheme !== 'water' && pTheme !== 'gems' && pTheme !== 'wood') {
                           ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(c*grid, r*grid+grid); ctx.lineTo(c*grid+grid, r*grid); ctx.stroke();
                       }
                   }
@@ -20628,7 +20795,7 @@
         // Ghost: one flat silhouette. No per-cell outlines and no 1px gaps, so
         // adjacent cells merge into a single solid shape.
         ctx.globalAlpha = 0.3;
-        ctx.fillStyle = colors[p.tetromino.name];
+        ctx.fillStyle = pColors[p.tetromino.name];
         for (let r=0; r<p.tetromino.matrix.length; r++) {
             for (let c=0; c<p.tetromino.matrix[r].length; c++) {
                 if (p.tetromino.matrix[r][c]) {
@@ -20649,7 +20816,7 @@
         // crossing row 0 briefly showed two overlapping glows at the seam - the
         // "refraction" look. Every pass below now skips rows still above the
         // board, which the separate buffer canvas already owns.
-        ctx.shadowBlur=10; ctx.shadowColor=colors[p.tetromino.name]; ctx.strokeStyle=colors[p.tetromino.name]; ctx.lineWidth=2; ctx.fillStyle=colors[p.tetromino.name]; ctx.globalAlpha=0.15;
+        ctx.shadowBlur=10; ctx.shadowColor=pColors[p.tetromino.name]; ctx.strokeStyle=pColors[p.tetromino.name]; ctx.lineWidth=2; ctx.fillStyle=pColors[p.tetromino.name]; ctx.globalAlpha=0.15;
         for (let r=0; r<p.tetromino.matrix.length; r++) for (let c=0; c<p.tetromino.matrix[r].length; c++) if (p.tetromino.matrix[r][c] && (p.tetromino.row+r) >= 0) { ctx.fillRect((p.tetromino.col+c)*grid, (p.tetromino.row+r)*grid, grid-1, grid-1); ctx.strokeRect((p.tetromino.col+c)*grid+2, (p.tetromino.row+r)*grid+2, grid-4, grid-4); }
         ctx.shadowBlur=0; ctx.globalAlpha=1.0;
 
@@ -20663,12 +20830,12 @@
             }
         }
 
-        if (currentTheme === 'glass') {
+        if (pTheme === 'glass') {
              if (drawWhite) {
                  ctx.fillStyle = '#fff';
                  activeBlocks.forEach(b => ctx.fillRect(b.c*grid, b.r*grid, grid, grid));
              } else {
-                 drawConnectedGlass(ctx, activeBlocks, colors[p.tetromino.name], grid, 0, 0);
+                 drawConnectedGlass(ctx, activeBlocks, pColors[p.tetromino.name], grid, 0, 0);
              }
         } else {
             for (let r=0; r<p.tetromino.matrix.length; r++) {
@@ -20677,7 +20844,7 @@
                        if (drawWhite) {
                            ctx.fillStyle = '#fff'; ctx.fillRect((p.tetromino.col+c)*grid, (p.tetromino.row+r)*grid, grid-1, grid-1);
                        } else {
-                           drawThemeBlock(ctx, p.tetromino.row+r, p.tetromino.col+c, colors[p.tetromino.name]);
+                           drawThemeBlock(ctx, p.tetromino.row+r, p.tetromino.col+c, pColors[p.tetromino.name], grid, pTheme);
                        }
                     }
                 }
@@ -21214,6 +21381,8 @@
     function renderBufferZone(p) {
       const bctx = p.bufferCtx;
       if (!bctx) return;
+      const pTheme = (p.isOnlineMirror && p.mirrorTheme && THEMES[p.mirrorTheme]) ? p.mirrorTheme : currentTheme;
+      const pColors = THEMES[pTheme] || colors;
       bctx.clearRect(0, 0, 340, BUFFER_PX);
       bctx.save();
       bctx.translate(20, 0);
@@ -21221,7 +21390,7 @@
       for (let row=SPAWN_ROW; row<0; row++) {
         for (let c=0; c<10; c++) {
           if (p.playfield[row] && p.playfield[row][c]) {
-            drawThemeBlock(bctx, row - SPAWN_ROW, c, colors[p.playfield[row][c]] || '#888');
+            drawThemeBlock(bctx, row - SPAWN_ROW, c, pColors[p.playfield[row][c]] || '#888', grid, pTheme);
           }
         }
       }
@@ -21277,7 +21446,7 @@
         // drawThemeBlock, which sets (and resets) its own globalAlpha per
         // theme and would just render an opaque block instead of a ghost.
         bctx.globalAlpha = 0.3;
-        bctx.fillStyle = colors[p.tetromino.name];
+        bctx.fillStyle = pColors[p.tetromino.name];
         for (let r=0; r<mat.length; r++) {
           for (let c=0; c<mat[r].length; c++) {
             if (mat[r][c]) {
@@ -21295,7 +21464,7 @@
             if (mat[r][c]) {
               const boardRow = p.tetromino.row + r;
               if (boardRow < 0 && boardRow >= SPAWN_ROW) {
-                drawThemeBlock(bctx, boardRow - SPAWN_ROW, p.tetromino.col + c, colors[p.tetromino.name]);
+                drawThemeBlock(bctx, boardRow - SPAWN_ROW, p.tetromino.col + c, pColors[p.tetromino.name], grid, pTheme);
               }
             }
           }
@@ -21683,12 +21852,13 @@
 
       // Periodic full-state broadcast so the opponent's board animates
       // smoothly (falling piece, soft-dropping, DAS) between the immediate
-      // sends lockPiece already does on every lock - throttled to ~10/sec,
-      // plenty for a board that's otherwise just being looked at, not
-      // interacted with.
+      // sends lockPiece already does on every lock. Was every 6 steps
+      // (~10/sec) - the gap between updates read as laggy, especially
+      // during a fast soft-drop. ~20/sec is still a trivially small JSON
+      // payload over a websocket broadcast for a 1v1.
       if (gameMode === 'vsonline' && vsoChannel && players[0]) {
           vsoBroadcastTick++;
-          if (vsoBroadcastTick % 6 === 0) vsOnlineBroadcastState();
+          if (vsoBroadcastTick % 3 === 0) vsOnlineBroadcastState();
       }
     }
 
@@ -21808,10 +21978,10 @@
         { key: 'rotateCcw', label: 'ROTATE CCW' }, { key: 'turbo', label: 'TURBO' }
       ];
 
-      // Each action can hold up to 3 keys. Every bound key is its own chip
+      // Each action can hold up to MAX_BINDS_PER_ACTION keys (see its
+      // declaration near customBinds). Every bound key is its own chip
       // (click to rebind just that one, the x removes it), plus a trailing
       // [+] chip to add another key on top of what's already there.
-      const MAX_BINDS_PER_ACTION = 3;
 
       function addRow(act, binds, scope) {
         let row = document.createElement('div');
@@ -21843,7 +22013,7 @@
             let chip = document.createElement('button');
             chip.className = 'menu-btn blue';
             chip.style.cssText = 'width:auto;min-width:44px;padding:8px 10px;margin:0;font-size:13px;';
-            chip.innerText = code.replace('Key', '').replace('Arrow', '');
+            chip.innerText = code.indexOf('Gp') === 0 ? 'PAD ' + code.slice(2).toUpperCase() : code.replace('Key', '').replace('Arrow', '');
             chip.title = 'Click to change this key';
             chip.onclick = () => startCapture(idx, chip);
             keysWrap.appendChild(chip);
