@@ -2170,6 +2170,23 @@
     }
 
     /* --- BOT LEVEL WHEEL --- */
+    /* Mirrors .diff-wheel's own clearance on the opposite side of the deck -
+       same reasoning (close enough to hug the edge overlaps the carousel's
+       swing radius), same style family as #tutorial-btn. */
+    #trophy-btn {
+      position: absolute;
+      left: min(-120px, -4vw);
+      top: 50%;
+      transform: translateY(-50%);
+      width: 58px; height: 58px; border-radius: 50%;
+      border: 2px solid #ffd700; background: rgba(35, 35, 48, 0.85);
+      color: #ffd700; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s; backdrop-filter: blur(4px);
+      z-index: 240;
+    }
+    #trophy-btn:hover { background: #ffd700; color: #000; box-shadow: 0 0 15px #ffd700; transform: translateY(-50%) scale(1.1); }
+
     .diff-wheel {
       position: absolute;
       /* Was max(6px, 2vw) - close enough to the play-stage's own right edge
@@ -2648,6 +2665,69 @@
       box-shadow: 0 0 8px rgba(91,232,255,0.7);
       z-index: 2;
     }
+    /* Boss and the versus modes - Survival keeps the original cyan. */
+    .mode-v2-badge.v2-red {
+      color: #2a060f;
+      background: linear-gradient(135deg, #ff8f8f, #ff3366);
+      box-shadow: 0 0 8px rgba(255,51,102,0.7);
+    }
+    /* Mirrors .mode-v2-badge on the opposite corner - Tutorial's own flag
+       that it's still rough/early, same idea as V2 but for the mode itself
+       rather than a beta feature set. */
+    .mode-alpha-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      font-weight: 900;
+      color: #2a1a06;
+      background: linear-gradient(135deg, #ffcf8e, #ff9933);
+      border-radius: 5px;
+      box-shadow: 0 0 8px rgba(255,153,51,0.7);
+      z-index: 2;
+      cursor: help;
+    }
+
+    /* A real hover tooltip instead of the native title= attribute - title's
+       own tooltip is unreliable this close to other overlapping hoverable
+       elements (the card itself, its neighbours in the carousel), and these
+       badges sit inside .mode-card's own overflow:hidden, so the tooltip is
+       positioned to open DOWN INTO the card (not up and out over the top
+       edge) to stay inside those bounds instead of getting clipped. */
+    .hover-tip { position: relative; }
+    .hover-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      background: #111118;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 4px 7px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.3);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 50;
+    }
+    .hover-tip:hover::after { opacity: 1; }
+    .hover-tip-badge-left::after { top: 100%; left: 0; margin-top: 4px; }
+    .hover-tip-badge-right::after { top: 100%; right: 0; margin-top: 4px; }
+    /* #trophy-btn sits in the open, not inside anything that clips - a
+       normal tooltip floating above it is fine there. */
+    #trophy-btn.hover-tip::after {
+      bottom: 100%; left: 50%; top: auto;
+      transform: translateX(-50%);
+      margin-bottom: 8px;
+    }
+
     .mode-card.active {
       opacity: 1;
       border-color: rgba(255,255,255,0.7);
@@ -3585,12 +3665,14 @@
 
     /* GLOBAL LEADERBOARD - same modal pattern as the tutorial box, cyan
        instead of red so it reads as "records/stats" not "help". */
-    #leaderboard-modal {
+    #leaderboard-modal, #name-prompt-modal {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(10, 10, 16, 0.95); backdrop-filter: blur(8px);
       z-index: 2000; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
     }
+    /* Above every other modal - this is the very first thing a visit shows. */
+    #name-prompt-modal { z-index: 5000; }
     .leaderboard-box {
       width: 460px; max-width: 90%; max-height: 80vh; background: #222233;
       border: 2px solid #00ffcc; border-radius: 12px;
@@ -3607,6 +3689,11 @@
       padding: 9px 10px; border-radius: 8px; margin-bottom: 6px;
       background: rgba(255,255,255,0.04);
     }
+    .lb-row-empty { opacity: 0.5; }
+    .lb-row-empty .lb-name, .lb-row-empty .lb-value { color: #666; font-weight: 400; }
+    /* Gold/silver/bronze for the top 3 slots regardless of whether they're
+       filled yet - an empty rank-1 placeholder still reads as "the gold
+       slot", just dimmed via .lb-row-empty's opacity above. */
     .lb-row:nth-child(1) { background: rgba(255,214,0,0.12); }
     .lb-row:nth-child(2) { background: rgba(200,200,220,0.10); }
     .lb-row:nth-child(3) { background: rgba(205,127,50,0.12); }
@@ -3614,6 +3701,16 @@
     .lb-name { flex: 1; color: #fff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lb-value { color: #00ffcc; font-weight: 900; letter-spacing: 0.5px; flex-shrink: 0; }
     .lb-empty { color: #8d93a6; font-size: 14px; padding: 20px 0; text-align: center; }
+    .lb-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; width: 100%; }
+    .lb-select {
+      background: #333344; color: #fff; border: 2px solid #00ffcc; border-radius: 6px;
+      padding: 6px 8px; font-family: inherit; font-weight: 700; font-size: 12px;
+      letter-spacing: 0.5px; cursor: pointer; outline: none;
+    }
+    .lb-select:disabled {
+      opacity: 0.7; cursor: default; border-color: #666; -webkit-appearance: none; appearance: none;
+    }
+    #lb-category-wrap { display: contents; }
     .tut-page { display: none; width: 100%; text-align: center; color: #ccc; font-size: 18px; line-height: 1.6; min-height: 280px; }
     .tut-page.active { display: block; animation: menuSlideUpIn 0.4s ease forwards; }
     .tut-page h3 { color: #00ffcc; font-size: 28px; margin-bottom: 20px; letter-spacing: 2px; }
@@ -4283,6 +4380,14 @@
         transform: translateY(0) translateX(20px) scale(0.72);
         transform-origin: 100% 100%;
       }
+      #trophy-btn {
+        left: 2px;
+        top: auto;
+        bottom: -4px;
+        transform: none;
+        width: 44px; height: 44px; font-size: 15px;
+      }
+      #trophy-btn:hover { transform: scale(1.1); }
       .play-stage.active .diff-wheel.show {
         transform: translateY(0) translateX(0) scale(0.72);
       }
@@ -4573,10 +4678,32 @@
   </div>
 
   <!-- GLOBAL LEADERBOARD MODAL -->
+  <!-- NAME PROMPT - shown first thing on every visit, over everything else
+       (see showNamePromptIfNeeded, called right after boot). -->
+  <div id="name-prompt-modal" style="display: none;">
+    <div class="leaderboard-box" style="border-color:#ffd700; box-shadow: 0 0 30px rgba(255,215,0,0.4);">
+      <h2 style="color:#ffd700; font-size: 22px; letter-spacing: 2px; margin: 0 0 10px; text-align:center;">WHO'S PLAYING?</h2>
+      <p style="color:#ccc; font-size: 13px; margin: 0 0 18px; text-align:center; max-width: 320px;">
+        This name is attached to anything you submit to the global leaderboard. Change it anytime in Settings.
+      </p>
+      <input id="name-prompt-input" type="text" maxlength="20" placeholder="Anonymous" class="lb-select" style="width: 220px; height: 42px; font-size: 15px; text-align:center;"
+             onkeydown="if(event.key==='Enter') confirmPlayerNamePrompt();">
+      <button class="menu-btn" style="margin-top: 18px; width: 220px;" onclick="confirmPlayerNamePrompt()">START</button>
+    </div>
+  </div>
+
   <div id="leaderboard-modal" style="display: none;">
     <div class="leaderboard-box">
       <button class="tut-close" onclick="closeLeaderboard()">X</button>
       <h2 id="leaderboard-title">LEADERBOARD</h2>
+      <div id="leaderboard-top10" style="text-align:center; color:#ffd700; font-weight:900; font-size:13px; letter-spacing:2px; margin:-10px 0 12px;">TOP 10!</div>
+      <div class="lb-controls">
+        <select id="lb-mode-select" class="lb-select" onchange="lbControlChanged()"></select>
+        <div id="lb-category-wrap">
+          <select id="lb-category-select" class="lb-select" onchange="lbControlChanged()"></select>
+        </div>
+        <select id="lb-variant-select" class="lb-select" onchange="lbControlChanged()"></select>
+      </div>
       <div id="leaderboard-list"></div>
     </div>
   </div>
@@ -4835,6 +4962,20 @@
       </div>
 
       <div id="play-stage" class="menu-stage play-stage">
+        <!-- Lives on the opposite side of the deck from the bot-level/track/
+             difficulty pickers (see .diff-wheel etc, all anchored right) -
+             always available, not tied to whichever card happens to be
+             selected. -->
+        <button type="button" id="trophy-btn" class="hover-tip" data-tip="Leaderboards" onclick="openLeaderboardMenu()">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 4h10v3a5 5 0 0 1-5 5 5 5 0 0 1-5-5V4z"/>
+            <path d="M7 5H4a3 3 0 0 0 3 4"/>
+            <path d="M17 5h3a3 3 0 0 1-3 4"/>
+            <path d="M12 12v3"/>
+            <path d="M9 20h6"/>
+            <path d="M10 17h4l.5 3h-5z"/>
+          </svg>
+        </button>
         <div class="mode-viewport" id="mode-viewport" aria-label="Mode selector"></div>
 
         <!-- Bot level lives beside the deck instead of behind a modal: it only
@@ -4935,9 +5076,12 @@
             <button id="v2BetaToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #ff3366;" onclick="toggleV2BetaSetting(); this.blur();" onfocus="setMenuIndex(2)">OFF</button>
           </div>
 
+          <!-- Fixed now, not a cycle button any more (see cycleSpeed) - kept
+               as a plain display so every player is on the same speed the
+               leaderboards actually mean. -->
           <div class="control-group" id="ctrl-gameSpeed">
             GAME SPEED
-            <button id="speedBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff; font-size: 15px;" onclick="cycleSpeed(); this.blur();" onfocus="setMenuIndex(3)"></button>
+            <button id="speedBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff; font-size: 15px; cursor: default;" onfocus="setMenuIndex(3)" tabindex="-1"></button>
           </div>
 
           <div class="control-group" id="ctrl-touch">
@@ -5167,7 +5311,7 @@
 
       <div class="results-btns">
         <button class="menu-btn overlay-nav-btn" id="resumeBtn" onclick="togglePause()">RESUME</button>
-        <button class="menu-btn overlay-nav-btn" id="go-leaderboard-btn" style="display:none;" onclick="openLeaderboard()">LEADERBOARD</button>
+        <button class="menu-btn overlay-nav-btn" id="go-leaderboard-btn" style="display:none;" onclick="openResultsLeaderboard()">LEADERBOARD</button>
         <button class="menu-btn overlay-nav-btn" onclick="restartGame()">RESTART</button>
         <button class="menu-btn overlay-nav-btn" onclick="backToMenu()">MAIN MENU</button>
       </div>
@@ -5760,9 +5904,56 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.112';
+    const GAME_VERSION = '1.116';
 
     const PATCH_NOTES = [
+      {
+        version: '1.116',
+        date: '9 Oct 2026',
+        title: 'Leaderboard title cleanup',
+        changes: [
+          { tag: 'change', text: '<b>The leaderboard title now just reads "(MODE) - (WHAT IT\'S TRACKING)"</b>, e.g. "ENDLESS - SCORE" or "SURVIVAL - WAVE" - dropped the trailing "@ 2.2x" entirely, since every board is the same speed now.' }
+        ]
+      },
+      {
+        version: '1.115',
+        date: '9 Oct 2026',
+        title: 'Trophy icon, medal slots, and a leaderboard that stays put',
+        changes: [
+          { tag: 'change', text: '<b>The trophy icon is bigger</b>, and now only shows up on mode cards that actually have a leaderboard - VS, BotVsBot and Tutorial no longer show one with nothing behind it.' },
+          { tag: 'fix', text: '<b>Once you\'re viewing a leaderboard, you can\'t switch it to a different mode from inside the modal any more.</b> The mode dropdown is locked to whichever leaderboard you opened - the trophy button and the results-screen button already pick the right one for you, so switching away from inside the modal was never actually meant to work.' },
+          { tag: 'change', text: '<b>The game-speed dropdown is gone from the leaderboard</b> for every mode except Boss. Speed is fixed at 2.2x for everyone now, so a picker with one real option wasn\'t telling you anything. Boss still shows its difficulty picker, since that\'s a real choice.' },
+          { tag: 'new', text: '<b>Rank 1/2/3 are gold, silver and bronze now even when they\'re still empty placeholders</b> - the top 10 board reads as three real medal slots waiting to be filled, not just highlighted once someone\'s already in them. Added a small "TOP 10!" label under the leaderboard title too.' }
+        ]
+      },
+      {
+        version: '1.114',
+        date: '9 Oct 2026',
+        title: 'Leaderboard polish, a real trophy icon, fixed speed',
+        changes: [
+          { tag: 'new', text: '<b>The leaderboard always shows 10 slots now</b>, real entries first and empty placeholders for whatever rank is still open, instead of a list that only ever showed as many rows as existed.' },
+          { tag: 'change', text: '<b>The trophy icon is a hand-drawn SVG cup now</b>, not a emoji, matching the rest of the menu\'s style - and it opens straight to whichever mode card is actually selected in the carousel instead of always defaulting to Endless.' },
+          { tag: 'change', text: '<b>"Sprint" reads as ULTRA everywhere in the leaderboard</b> now (the mode card already said this; the leaderboard browser and titles didn\'t match it). The underlying save data is unchanged.' },
+          { tag: 'fix', text: '<b>The Alpha badge\'s tooltip never actually appeared on hover.</b> It was using the native title= attribute, which turned out unreliable this close to the card\'s own overlapping hover zones. Replaced with a real on-page tooltip (also applied to the V2 badge and the trophy icon) that opens safely inside the card instead of trying to float above it and getting clipped.' },
+          { tag: 'fix', text: '<b>Found and fixed a real bug in the leaderboard browser itself while testing all this:</b> changing the category or speed/difficulty dropdown was getting silently reset back to the previous value the instant you picked a new one, because the mode dropdown\'s own change handler was unconditionally rebuilding (and resetting) all three controls on every change, not just when the mode itself changed.' },
+          { tag: 'change', text: '<b>GAME SPEED is fixed at 2.2x now - the setting to change it is gone.</b> Every leaderboard entry speed label actually meant something different before; now everyone\'s comparing the same speed.' },
+          { tag: 'new', text: '<b>Survival\'s Distance and Combined leaderboards (and now Wave too) only ever accept runs that started the climb from 0m.</b> Starting from an unlocked 200m/400m/600m/800m checkpoint gives you a running head start on all three - distance, wave, and the combined score - so those runs stay off the global board, same as a bot\'s run already does.' }
+        ]
+      },
+      {
+        version: '1.113',
+        date: '9 Oct 2026',
+        title: 'Leaderboards for every mode, a trophy menu, and Boss joins the board',
+        changes: [
+          { tag: 'new', text: '<b>A full leaderboard browser</b> - a trophy button next to the mode deck opens it from the main menu, pick any mode (and for Survival, which of its three rankings) and any speed/difficulty to browse. The results-screen LEADERBOARD button still jumps straight to whatever you just played.' },
+          { tag: 'new', text: '<b>Boss now has a leaderboard: best time to defeat THE SENTINEL, tracked separately per difficulty</b> (Easy/Normal/Hard) instead of per game speed, since difficulty is the thing that actually changes the fight.' },
+          { tag: 'new', text: '<b>Survival now tracks three separate rankings</b> instead of one: WAVE (how far you got), DISTANCE (how high you climbed, V2 BETA only), and DISTANCE + WAVE combined (ranked by wave first, distance as the tiebreaker). Each has its own personal best and its own leaderboard.' },
+          { tag: 'change', text: '<b>Ultra\'s leaderboard reads in seconds now (e.g. 83.456s) instead of mm:ss.cc</b> - just on the leaderboard itself; the results screen\'s own time readout is unchanged.' },
+          { tag: 'new', text: '<b>A name prompt greets you at the start of every visit</b> - pre-filled with whatever you used last time, one Enter/click to confirm. Still editable anytime in Settings.' },
+          { tag: 'new', text: '<b>Boss and the versus modes\' V2 badge is red now</b> (Survival\'s stays the original cyan), and every V2 badge explains itself on hover ("V2 Features Enabled").' },
+          { tag: 'fix', text: '<b>The Tutorial card was actually labelled "ALPHA" instead of "TUTORIAL".</b> It reads TUTORIAL now, with a small separate "A" badge (hover: Alpha) flagging that the mode itself is still rough, the same way the V2 badge flags a beta feature.' }
+        ]
+      },
       {
         version: '1.112',
         date: '9 Oct 2026',
@@ -7667,12 +7858,10 @@
         isAudioRouted = true;
     }
 
-    function cycleSpeed(reverse = false) {
-        speedIdx = (speedIdx + (reverse ? -1 : 1) + SPEED_PRESETS.length) % SPEED_PRESETS.length;
-        gameSpeed = SPEED_PRESETS[speedIdx].mult;
-        updateSpeedUI();
-        saveSettings();
-    }
+    // GAME SPEED is fixed at the default now - this is a deliberate no-op,
+    // not wired to anything in the UI any more (see #ctrl-gameSpeed), kept
+    // only so a stray call from somewhere old doesn't throw.
+    function cycleSpeed(reverse = false) { /* disabled - speed is fixed */ }
 
     function updateSpeedUI() {
         const p = SPEED_PRESETS[speedIdx];
@@ -7822,11 +8011,36 @@
         return clean;
     }
 
+    // Shown once at the very start of every visit, on top of whatever else
+    // is on screen (splash or the menu) - pre-filled with whatever name was
+    // last used, so returning players just hit START/Enter, and anyone who
+    // hasn't set one yet is asked before they can get into anything.
+    function showNamePromptIfNeeded() {
+        const modal = document.getElementById('name-prompt-modal');
+        const input = document.getElementById('name-prompt-input');
+        if (!modal || !input) return;
+        const current = getPlayerName();
+        input.value = current === 'Anonymous' ? '' : current;
+        modal.style.display = 'flex';
+        setTimeout(() => input.focus(), 50);
+    }
+
+    function confirmPlayerNamePrompt() {
+        const input = document.getElementById('name-prompt-input');
+        const clean = setPlayerName(input ? input.value : '');
+        const settingsInput = document.getElementById('playerNameInput');
+        if (settingsInput) settingsInput.value = clean;
+        const modal = document.getElementById('name-prompt-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
     // Fire-and-forget on purpose - a failed submission (offline, momentary
     // Supabase hiccup, RLS rejection) should never interrupt or error out
     // the player's own run. It only ever adds one row to a public board;
     // nothing about the local game depends on it succeeding.
-    async function submitScoreToLeaderboard(mode, speedLabel, value, text) {
+    // category is only meaningful for Survival (wave/distance/combined -
+    // see LB_CATEGORIES) and stays null for every other mode.
+    async function submitScoreToLeaderboard(mode, speedLabel, value, text, category = null) {
         if (!sbClient) return;
         try {
             await sbClient.from('scores').insert({
@@ -7834,24 +8048,52 @@
                 mode,
                 speed_label: speedLabel,
                 value,
-                display_text: text
+                display_text: text,
+                category
             });
         } catch (e) { /* best-effort - see comment above */ }
     }
 
-    async function fetchLeaderboard(mode, speedLabel, limit = 10) {
+    async function fetchLeaderboard(mode, speedLabel, limit = 10, category = null) {
         if (!sbClient) return [];
         try {
-            const { data, error } = await sbClient
+            let q = sbClient
                 .from('scores')
                 .select('player_name, display_text, value, created_at')
                 .eq('mode', mode)
-                .eq('speed_label', speedLabel)
-                .order('value', { ascending: false })
-                .limit(limit);
+                .eq('speed_label', speedLabel);
+            q = category ? q.eq('category', category) : q.is('category', null);
+            const { data, error } = await q.order('value', { ascending: false }).limit(limit);
             if (error) return [];
             return data || [];
         } catch (e) { return []; }
+    }
+
+    // Every mode the leaderboard knows about, and (for Survival only) the
+    // three separate rankings it tracks - distance climbed, wave reached,
+    // and a combined score that rewards both at once.
+    const LB_MODES = ['endless', 'sprint', 'survival', 'puzzles', 'endurance', 'boss'];
+    // Sprint is branded "Ultra" everywhere a player actually sees it (the
+    // mode card already says ULTRA) - the internal mode key stays 'sprint'
+    // (changing that would mean touching every saved personal best and
+    // every row already in the live scores table), this just fixes display.
+    const LB_MODE_DISPLAY_NAMES = { sprint: 'ULTRA' };
+    function lbModeDisplayName(mode) { return LB_MODE_DISPLAY_NAMES[mode] || mode.toUpperCase(); }
+    const LB_CATEGORIES = {
+        survival: [
+            { key: 'wave', label: 'WAVE' },
+            { key: 'distance', label: 'DISTANCE' },
+            { key: 'combined', label: 'DISTANCE + WAVE' }
+        ]
+    };
+    function lbVariantOptions(mode) {
+        return mode === 'boss' ? Object.values(BOSS_DIFFICULTIES).map(d => d.label) : SPEED_PRESETS.map(s => s.label);
+    }
+    // Survival's combined score ranks by wave first and breaks ties with
+    // distance, instead of guessing at a weighting between two numbers in
+    // completely different units (wave counts vs. metres).
+    function survivalCombinedValue(wave, altitudeM) {
+        return wave * 100000 + Math.round(altitudeM * 10);
     }
 
     // Names and display text in the scores table come from OTHER players -
@@ -7865,45 +8107,168 @@
         return div.innerHTML;
     }
 
-    async function openLeaderboard() {
+    // Current selection in the leaderboard browser - persists while the
+    // modal is open so switching one dropdown doesn't reset the others.
+    let lbState = { mode: 'endless', category: null, variant: null };
+
+    // Ultra's own leaderboard reads in seconds.mmm instead of the mm:ss.cc
+    // everywhere else uses (go-time, the results screen) - this only
+    // affects how a row is RENDERED here, never what's stored, so the rest
+    // of the game is untouched.
+    function lbFormatValue(mode, row) {
+        if (mode === 'sprint') return (-row.value / 1000).toFixed(3) + 's';
+        return row.display_text;
+    }
+
+    // Rebuilds the mode/category/variant dropdowns to match lbState, since
+    // category only exists for Survival and the variant list itself differs
+    // (difficulty for Boss, game speed for everything else).
+    function rebuildLeaderboardControls() {
+        const modeSel = document.getElementById('lb-mode-select');
+        const catWrap = document.getElementById('lb-category-wrap');
+        const catSel = document.getElementById('lb-category-select');
+        const varSel = document.getElementById('lb-variant-select');
+        if (!modeSel || !catSel || !varSel) return;
+
+        if (!modeSel.dataset.built) {
+            modeSel.innerHTML = LB_MODES.map(m => `<option value="${m}">${lbModeDisplayName(m)}</option>`).join('');
+            modeSel.dataset.built = 'true';
+        }
+        modeSel.value = lbState.mode;
+        // Whichever leaderboard you opened is the only one you see - the
+        // mode select exists just to label it, not to switch away (the
+        // trophy/results buttons already pick the right mode for you).
+        modeSel.disabled = true;
+
+        const categories = LB_CATEGORIES[lbState.mode];
+        if (categories) {
+            catWrap.style.display = '';
+            catSel.innerHTML = categories.map(c => `<option value="${c.key}">${c.label}</option>`).join('');
+            if (!categories.some(c => c.key === lbState.category)) lbState.category = categories[0].key;
+            catSel.value = lbState.category;
+        } else {
+            catWrap.style.display = 'none';
+            lbState.category = null;
+        }
+
+        // Game speed is locked at 2.2x for everyone now, so showing a speed
+        // picker here would just be a dropdown with one meaningful option -
+        // only Boss still has a real variant axis (difficulty) worth picking.
+        const variants = lbVariantOptions(lbState.mode);
+        if (!variants.includes(lbState.variant)) lbState.variant = variants[0];
+        if (lbState.mode === 'boss') {
+            varSel.style.display = '';
+            varSel.innerHTML = variants.map(v => `<option value="${v}">${v}</option>`).join('');
+            varSel.value = lbState.variant;
+        } else {
+            varSel.style.display = 'none';
+        }
+    }
+
+    async function openLeaderboard(mode, category, variant) {
+        const modal = document.getElementById('leaderboard-modal');
+        const list = document.getElementById('leaderboard-list');
+        if (!modal || !list) return;
+
+        if (mode) lbState.mode = mode;
+        if (category !== undefined) lbState.category = category;
+        lbState.variant = variant || getResultVariantLabel(lbState.mode);
+        rebuildLeaderboardControls();
+        modal.style.display = 'flex';
+        await refreshLeaderboardList();
+    }
+
+    async function refreshLeaderboardList() {
         const modal = document.getElementById('leaderboard-modal');
         const list = document.getElementById('leaderboard-list');
         const title = document.getElementById('leaderboard-title');
         if (!modal || !list || !title) return;
 
-        const mode = gameMode;
-        const speedLabel = SPEED_PRESETS[speedIdx].label;
-        const label = (BEST_LABELS[mode] || 'LEADERBOARD').replace('BEST ', '');
-        title.innerText = `${label} - ${mode.toUpperCase()} @ ${speedLabel}`;
+        const { mode, category, variant } = lbState;
+        // Survival's category label already says exactly what's being
+        // ranked (WAVE / DISTANCE / DISTANCE + WAVE) - showing BEST_LABELS'
+        // own generic label alongside it just repeated the same word twice.
+        const label = category
+            ? LB_CATEGORIES[mode].find(c => c.key === category).label
+            : (BEST_LABELS[mode] || 'LEADERBOARD').replace('BEST ', '');
+        title.innerText = `${lbModeDisplayName(mode)} - ${label}`;
         list.innerHTML = '<div class="lb-empty">Loading...</div>';
-        modal.style.display = 'flex';
 
         if (!sbClient) {
             list.innerHTML = '<div class="lb-empty">Leaderboard unavailable right now.</div>';
             return;
         }
 
-        const rows = await fetchLeaderboard(mode, speedLabel, 10);
-        // The modal may have been closed again before the fetch finished -
-        // don't resurrect it or write into a hidden list.
-        if (modal.style.display === 'none') return;
+        const rows = await fetchLeaderboard(mode, variant, 10, category);
+        // The modal may have moved on to a different selection (or closed)
+        // before this fetch finished - don't overwrite whatever it shows now.
+        if (modal.style.display === 'none' || lbState.mode !== mode || lbState.category !== category || lbState.variant !== variant) return;
 
-        if (!rows.length) {
-            list.innerHTML = '<div class="lb-empty">No scores yet - be the first!</div>';
-            return;
-        }
-        list.innerHTML = rows.map((r, i) => `
+        // Always 10 rows - real entries first, then empty placeholder slots
+        // for whatever's left, so "the top 10" reads as a fixed-size board
+        // waiting to be filled rather than a list that grows one row at a time.
+        const filled = rows.map((r, i) => `
             <div class="lb-row">
               <span class="lb-rank">${i + 1}</span>
               <span class="lb-name">${escapeHtml(r.player_name)}</span>
-              <span class="lb-value">${escapeHtml(r.display_text)}</span>
+              <span class="lb-value">${escapeHtml(lbFormatValue(mode, r))}</span>
             </div>
         `).join('');
+        let placeholders = '';
+        for (let i = rows.length; i < 10; i++) {
+            placeholders += `
+            <div class="lb-row lb-row-empty">
+              <span class="lb-rank">${i + 1}</span>
+              <span class="lb-name">-</span>
+              <span class="lb-value">-</span>
+            </div>`;
+        }
+        list.innerHTML = filled + placeholders;
+    }
+
+    function lbControlChanged() {
+        const newMode = document.getElementById('lb-mode-select').value;
+        if (newMode !== lbState.mode) {
+            // Mode actually changed - the category/variant option LISTS
+            // themselves are different now, so rebuild them (which resets
+            // category/variant to sane defaults for the new mode).
+            lbState.mode = newMode;
+            rebuildLeaderboardControls();
+        } else {
+            // Same mode - this change came from the category or variant
+            // select itself. Reading their live values directly (and NOT
+            // calling rebuildLeaderboardControls, which always resets the
+            // variant <select> back to whatever lbState.variant already
+            // was) is what actually lets picking a new one stick, instead
+            // of it being silently reset back to the old value.
+            lbState.category = LB_CATEGORIES[lbState.mode] ? document.getElementById('lb-category-select').value : null;
+            lbState.variant = document.getElementById('lb-variant-select').value;
+        }
+        refreshLeaderboardList();
     }
 
     function closeLeaderboard() {
         const modal = document.getElementById('leaderboard-modal');
         if (modal) modal.style.display = 'none';
+    }
+
+    // The results-screen LEADERBOARD button - opens straight to whatever was
+    // just played (Survival always lands on WAVE; switch categories inside
+    // the modal itself), unlike the trophy button's open-ended browser.
+    function openResultsLeaderboard() {
+        const category = gameMode === 'survival' ? 'wave' : null;
+        openLeaderboard(gameMode, category, getResultVariantLabel(gameMode));
+    }
+
+    // The trophy button on the main menu - no just-finished run to default
+    // to, so it opens on Endless and lets the player pick from there.
+    // Opens straight to whichever mode card is currently selected/centred in
+    // the carousel, not always Endless - the mode dropdown inside the modal
+    // can still switch from there, this just fixes where it starts.
+    function openLeaderboardMenu() {
+        const mode = (modeDeck[selectedModeIndex] && modeDeck[selectedModeIndex].mode) || 'endless';
+        const category = LB_CATEGORIES[mode] ? LB_CATEGORIES[mode][0].key : null;
+        openLeaderboard(mode, category, getResultVariantLabel(mode));
     }
 
     function saveSettings() {
@@ -8005,10 +8370,9 @@
         }
         if (data.touchLayout && data.touchLayout.pos) touchLayout = data.touchLayout;
 
-        if (typeof data.speedMult === 'number') {
-            const i = SPEED_PRESETS.findIndex(p => p.mult === data.speedMult);
-            if (i !== -1) { speedIdx = i; gameSpeed = SPEED_PRESETS[i].mult; }
-        }
+        // GAME SPEED is fixed at the default (2.2x) now - no longer loaded
+        // from a saved value, so anyone with an old save from before this
+        // change doesn't come back to a different speed than everyone else.
 
         if (typeof data.dasMs === 'number') dasMs = clampHandling(data.dasMs, HANDLING_LIMITS.das);
         if (typeof data.arrMs === 'number') arrMs = clampHandling(data.arrMs, HANDLING_LIMITS.arr);
@@ -8042,8 +8406,19 @@
         sprint: 'BEST TIME',
         survival: 'BEST WAVE',
         puzzles: 'BEST TIME',
-        endurance: 'BEST WAVE'
+        endurance: 'BEST WAVE',
+        boss: 'BEST TIME'
     };
+
+    // The per-speed personal-best key (${mode}@${label}) makes sense for
+    // every mode EXCEPT Boss, which doesn't have a game-speed axis the same
+    // way - difficulty is the thing that actually changes the fight. One
+    // lookup for "whichever axis this mode actually varies on" instead of
+    // scattering the special case across every call site.
+    function getResultVariantLabel(mode) {
+        if (mode === 'boss') return BOSS_DIFFICULTIES[bossDifficultyKey].label;
+        return SPEED_PRESETS[speedIdx].label;
+    }
 
     // Survival's "start altitude" checkpoints - climbing continuously from 0
     // means you can never actually reach 600m without having passed through
@@ -8137,6 +8512,11 @@
     };
     let bossHealth = BOSS_MAX_HEALTH;
     let bossDifficultyKey = 'normal';
+    // Captured the instant the boss actually dies (applyBossDamage), not at
+    // the delayed triggerGameOver() call that follows it - the defeat
+    // animation's own fixed delay would otherwise get baked into every
+    // single run's time by the same constant amount.
+    let bossDefeatTimeMs = null;
     let bossAttackTimerMs = 0;
     let bossHitFlashT = 0;
     const BOSS_ATTACKS = ['garbage_small', 'garbage_big', 'flip', 'laser', 'invisible', 'curse', 'bomb', 'gravity', 'nospin'];
@@ -8171,6 +8551,7 @@
         bossClouds = null;
         bossCitySkyline = null;
         bossTetrisBeams = [];
+        bossDefeatTimeMs = null;
         const effectsList = document.getElementById('boss-effects-list');
         if (effectsList) { effectsList.innerHTML = ''; delete effectsList.dataset.sig; }
         resetBossVisualEffects();
@@ -8209,6 +8590,7 @@
             // blur before it had a chance to actually play.
             const p = players[0];
             if (p) p.gameOver = true;
+            bossDefeatTimeMs = p ? p.playTimeMs : null;
             triggerBossDefeatAnim();
             setTimeout(() => triggerGameOver('BOSS DEFEATED'), BOSS_DEFEAT_MS + 300);
         }
@@ -8527,6 +8909,7 @@
         if (mode === 'survival') return { value: p1.survivalWave, text: `WAVE ${p1.survivalWave}` };
         if (mode === 'puzzles') return p1.puzzleCleared ? { value: -p1.playTimeMs, text: formatTime(p1.playTimeMs) } : null;
         if (mode === 'endurance') return { value: enduranceWave, text: `WAVE ${enduranceWave}` };
+        if (mode === 'boss') return (bossDefeatTimeMs != null) ? { value: -bossDefeatTimeMs, text: formatTime(bossDefeatTimeMs) } : null;
         return null;
     }
 
@@ -8702,9 +9085,13 @@
     }
 
     // Modes that look visibly different with V2 BETA on (their own card gets
-    // a V2 badge for it - see updateModeCards). Boss is left out: it has no
-    // V1 look to badge against, it simply does not exist with V2 BETA off.
-    const V2_AFFECTED_MODES = ['survival', 'vs', 'botvsbot'];
+    // a V2 badge for it - see updateModeCards). Boss has no V1 look to badge
+    // AGAINST (it simply doesn't exist with V2 BETA off) but gets the badge
+    // anyway as a flag that it's a V2 feature, same as the others.
+    const V2_AFFECTED_MODES = ['survival', 'vs', 'botvsbot', 'boss'];
+    // Boss and the versus modes get the red variant (see .mode-v2-badge.v2-red) -
+    // Survival keeps the original cyan.
+    const V2_BADGE_RED_MODES = ['boss', 'vs', 'botvsbot'];
 
     const modeDeck = [
         { mode: 'endless', label: 'Endless', tag: 'Arcade', color: '#aa00ff' },
@@ -8715,7 +9102,7 @@
         { mode: 'botvsbot', label: 'Spectate', tag: 'Watch', color: '#ff3366' },
         { mode: 'endurance', label: 'Endurance', tag: 'Wave', color: '#ff3366' },
         { mode: 'puyo', label: 'Puyo Puyo', tag: 'Beta', color: '#ff66cc' },
-        { mode: 'tutorial', label: 'Alpha', tag: 'Learn', color: '#8b5a2b' },
+        { mode: 'tutorial', label: 'Tutorial', tag: 'Learn', color: '#8b5a2b' },
         // V2 BETA only - see isModeCardEnabled/skipDisabledModeIndex, which
         // hide this card and steer the deck's selection past it whenever
         // v2Beta is off, so V1 never sees or can land on Boss at all.
@@ -9101,7 +9488,8 @@
                         <div class="mode-name">${modeData.label.toUpperCase()}</div>
                         <div class="mode-tag">${modeData.tag.toUpperCase()}</div>
                     </div>
-                    ${V2_AFFECTED_MODES.includes(modeData.mode) ? `<div class="mode-v2-badge" id="${modeData.mode}-v2-badge">V2</div>` : ''}
+                    ${modeData.mode === 'tutorial' ? '<div class="mode-alpha-badge hover-tip hover-tip-badge-left" data-tip="Alpha">A</div>' : ''}
+                    ${V2_AFFECTED_MODES.includes(modeData.mode) ? `<div class="mode-v2-badge${V2_BADGE_RED_MODES.includes(modeData.mode) ? ' v2-red' : ''} hover-tip hover-tip-badge-right" id="${modeData.mode}-v2-badge" data-tip="V2 Features Enabled">V2</div>` : ''}
                 </div>
             `).join('');
 
@@ -9780,6 +10168,11 @@
           buildBossDifficultyPicker();
           bossPicker.classList.toggle('show', mode === 'boss');
       }
+      // Only modes the leaderboard actually tracks (see LB_MODES) get a
+      // trophy button - VS, BotVsBot and Tutorial have no scores table
+      // entry to show, so there's nothing for it to open there.
+      const trophyBtn = document.getElementById('trophy-btn');
+      if (trophyBtn) trophyBtn.style.display = LB_MODES.includes(mode) ? 'flex' : 'none';
     }
 
     // Renders all seven tetrominoes through drawThemeBlock() - the exact
@@ -9897,6 +10290,7 @@
         updateThemePreview(document.getElementById('themeSelect').value);
         setMenuStage('home', '', true);
         if (v2Beta) runSplashIntro();
+        showNamePromptIfNeeded();
         document.querySelectorAll('.menu-nav-btn, .title-panel').forEach(btn => {
             btn.addEventListener('click', (event) => {
                 event.preventDefault();
@@ -11020,7 +11414,8 @@
       if (result && BEST_LABELS[gameMode]) {
           // A run at 2.4x is not comparable with one at 1.0x, so each speed
           // keeps its own record rather than overwriting the others.
-          const bestKey = `${gameMode}@${SPEED_PRESETS[speedIdx].label}`;
+          const variantLabel = getResultVariantLabel(gameMode);
+          const bestKey = `${gameMode}@${variantLabel}`;
           const prevBest = personalBests[bestKey];
           const isNewBest = !prevBest || result.value > prevBest.value;
           if (isNewBest) {
@@ -11030,7 +11425,13 @@
               // run would flood the table with nothing worth seeing, and a
               // new local best is already the exact moment a player would
               // want to see how it stacks up against everyone else anyway.
-              if (!p1.isBot) submitScoreToLeaderboard(gameMode, SPEED_PRESETS[speedIdx].label, result.value, result.text);
+              // Survival's main result here is always the WAVE ranking -
+              // distance and combined are tracked separately below. A
+              // checkpoint start (200m/400m/600m/800m) begins at a higher
+              // wave already, same unfair head start as distance/combined
+              // get from it, so wave is gated the same way: 0m starts only.
+              const survivalOk = gameMode !== 'survival' || survivalStartCheckpoint === 0;
+              if (!p1.isBot && survivalOk) submitScoreToLeaderboard(gameMode, variantLabel, result.value, result.text, gameMode === 'survival' ? 'wave' : null);
           }
           document.getElementById('go-best-label').innerText = isNewBest ? result.text : prevBest.text;
           bestRow.style.display = 'flex';
@@ -11048,16 +11449,41 @@
       // setting a new wave record (or vice versa).
       const altRow = document.getElementById('go-best-alt-row');
       if (gameMode === 'survival' && v2Beta) {
-          const altKey = `survivalAlt@${SPEED_PRESETS[speedIdx].label}`;
+          const survVariant = getResultVariantLabel('survival');
+          const altKey = `survivalAlt@${survVariant}`;
           const prevAltBest = personalBests[altKey];
           const isNewAltBest = !prevAltBest || survivalAltitudeM > prevAltBest.value;
           if (isNewAltBest) {
-              personalBests[altKey] = { value: survivalAltitudeM, text: survivalAltitudeM.toFixed(1) + 'm' };
+              const altText = survivalAltitudeM.toFixed(1) + 'm';
+              personalBests[altKey] = { value: survivalAltitudeM, text: altText };
               saveBests();
+              // Distance only means something as a fair comparison between
+              // runs that all started the climb from the same place - a run
+              // that started from an unlocked 400m/600m/800m checkpoint
+              // reaches a bigger number without actually climbing that far,
+              // so only a genuine 0m start ever reaches the global board.
+              if (!p1.isBot && survivalStartCheckpoint === 0) submitScoreToLeaderboard('survival', survVariant, survivalAltitudeM, altText, 'distance');
           }
           document.getElementById('go-best-alt-label').innerText = isNewAltBest ? personalBests[altKey].text : prevAltBest.text;
           altRow.style.display = 'flex';
           if (isNewAltBest) newBestBadge.style.display = 'block';
+
+          // Combined ranks by wave first, distance as the tiebreaker (see
+          // survivalCombinedValue) - its own separate personal best, since a
+          // run can set a new wave or distance record without setting a new
+          // combined one, or vice versa.
+          const combKey = `survivalCombined@${survVariant}`;
+          const prevCombBest = personalBests[combKey];
+          const combValue = survivalCombinedValue(p1.survivalWave, survivalAltitudeM);
+          const isNewCombBest = !prevCombBest || combValue > prevCombBest.value;
+          if (isNewCombBest) {
+              const combText = `WAVE ${p1.survivalWave} - ${survivalAltitudeM.toFixed(1)}m`;
+              personalBests[combKey] = { value: combValue, text: combText };
+              saveBests();
+              // Same reasoning as distance above - combined includes
+              // distance, so it's just as distorted by a checkpoint start.
+              if (!p1.isBot && survivalStartCheckpoint === 0) submitScoreToLeaderboard('survival', survVariant, combValue, combText, 'combined');
+          }
       } else {
           altRow.style.display = 'none';
       }
