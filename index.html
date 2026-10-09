@@ -507,10 +507,13 @@
     .panel {
       background-color: rgba(35, 35, 48, 0.85);
       backdrop-filter: blur(4px);
-      padding: 15px;
+      padding: 9px;
       border-radius: 8px;
       text-align: center;
-      width: 130px;
+      /* Narrower than before (was 130px) - the clear-type banner that used to
+         live at the top of this column now floats over the board itself
+         instead (see .action-wrapper), so HOLD doesn't need to carry it. */
+      width: 100px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -539,15 +542,15 @@
       align-items: center;
     }
 
-    /* Sits at the top of the left column, above HOLD. Zero width so the banner
-       can spill either way without dragging the panel wider than 130px. Taller
-       than before to give the bigger text room to breathe. */
+    /* Back in the HUD column, in the space right under APM/PPS - floating it
+       above the board (the hidden buffer rows) ended up invisible in real
+       play, most likely covered by the buffer zone's own content/overlays
+       up there. This spot is plain and reliable. */
     .action-wrapper {
       position: relative;
       width: 100%;
-      height: 86px;
-      margin-top: 0;
-      margin-bottom: 6px;
+      min-height: 60px;
+      margin-top: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -555,11 +558,11 @@
 
     .action-text {
       position: absolute;
-      font-size: 34px;
-      /* 900 (black) read as a thick, chunky wordmark. A lighter weight paired
-         with tight tracking reads as a slender condensed face instead, which
-         still holds up at this size without turning into a stroke outline. */
-      font-weight: 600;
+      font-size: 36px;
+      /* Thin rather than the old chunky 900/600 weight, and no glow - a
+         plain, slightly condensed wordmark instead of something trying to
+         look like it is sitting lit on top of the board. */
+      font-weight: 400;
       font-style: italic;
       text-transform: uppercase;
       letter-spacing: -0.5px;
@@ -567,12 +570,8 @@
       white-space: pre;
       line-height: 1.05;
       opacity: 0;
-      /* Flat fill, no gradient - the previous background-clip:text treatment
-         made the banner heavier than the rest of the HUD for no real reason. */
       color: #f2fbff;
-      text-shadow:
-        0 1px 2px rgba(0,0,0,0.9),
-        0 0 10px rgba(0,255,204,0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
     }
     .action-text.active {
       opacity: 1;
@@ -1402,7 +1401,15 @@
        reflowing the layout around it (a literal font-size change did, and
        visibly shoved the board around every time the combo grew). */
     .combo-display {
-      width: 130px;
+      /* A positioned, z-indexed element so it never again silently renders
+         behind the board's own canvas (z-index:2) regardless of DOM order -
+         but the real fix is not reaching toward the board at all: no more
+         negative margin pulling it left into the gap, width capped to the
+         NEXT panel's own 110px footprint, so it has its own space next to
+         the board instead of overlapping it either way. */
+      position: relative;
+      z-index: 8;
+      width: 110px;
       height: 52px;
       text-align: center;
       font-weight: 900;
@@ -1410,10 +1417,10 @@
       color: #ffffff;
       text-shadow: 0 2px 3px #000, 0 0 10px rgba(0,0,0,0.9);
       letter-spacing: 1px;
-      font-size: 26px;
+      font-size: 21px;
       line-height: 52px;
+      white-space: nowrap;
       margin-top: 6px;
-      margin-left: -10px;
       transform-origin: center top;
       transition: transform 0.15s ease-out;
     }
@@ -1471,29 +1478,51 @@
     }
 
     .badges-container {
+      /* Lives in the gap between the HOLD panel and the board now, not
+         stacked into the HOLD panel's own flow - a DOM child of .board-stack
+         (see the HTML), positioned relative to that board's left edge so it
+         reads as sitting "between" the two rather than belonging to either. */
+      position: absolute;
+      left: 0;
+      top: 320px;
+      transform: translate(-50%, -50%);
       display: flex;
       gap: 10px;
       justify-content: center;
-      width: 100%;
-      margin-top: 15px;
-      margin-bottom: 5px;
+      /* Needs to clear .fin-fx-canvas (Survival V2's rocket-fin overlay,
+         z-index:29) - it used to sit behind it and vanish under it. */
+      z-index: 30;
+      pointer-events: none;
     }
 
     .b2b-badge {
       position: relative;
-      width: 55px;
-      height: 55px;
+      width: var(--b2b-size, 55px);
+      height: var(--b2b-size, 55px);
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
       transform: scale(0.5);
+      transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+
+    /* Each tier up is a visibly bigger badge, not just a new colour - 8 tiers
+       now (white/green/yellow/orange/red/purple/dark purple/rainbow), see
+       B2B_TIERS and getB2BTier(). */
+    .b2b-badge.b2b-tier-1 { --b2b-size: 52px; --b2b-text-size: 22px; }
+    .b2b-badge.b2b-tier-2 { --b2b-size: 58px; --b2b-text-size: 24px; }
+    .b2b-badge.b2b-tier-3 { --b2b-size: 64px; --b2b-text-size: 26px; }
+    .b2b-badge.b2b-tier-4 { --b2b-size: 71px; --b2b-text-size: 28px; }
+    .b2b-badge.b2b-tier-5 { --b2b-size: 78px; --b2b-text-size: 31px; }
+    .b2b-badge.b2b-tier-6 { --b2b-size: 86px; --b2b-text-size: 34px; }
+    .b2b-badge.b2b-tier-7 { --b2b-size: 94px; --b2b-text-size: 37px; }
+    .b2b-badge.b2b-tier-8 { --b2b-size: 103px; --b2b-text-size: 40px; }
 
     .b2b-badge.active {
       opacity: 1;
       transform: scale(1);
-      transition: opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transition: opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     .b2b-badge.release {
@@ -1501,6 +1530,19 @@
       transform: scale(3) !important;
       filter: invert(100%);
       transition: opacity 0.6s ease-out, transform 0.6s ease-out, filter 0.6s ease-out;
+    }
+
+    /* Flung outward by spawnB2BShards() on a B2B release - the physical
+       "shatter" itself, separate from the badge's own scale-and-fade above. */
+    .b2b-shard {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 1;
+      transition: transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.6s ease-in;
     }
 
     .b2b-star {
@@ -1516,18 +1558,22 @@
       transform: translate(-50%, -50%);
       z-index: 1;
       font-weight: 900;
-      font-size: 24px;
+      font-size: var(--b2b-text-size, 24px);
+      transition: font-size 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    .star-white { background-color: #fff; filter: drop-shadow(0 0 6px #fff); animation: spin-star 2s linear infinite; }
-    .star-cyan { background-color: #00ffff; filter: drop-shadow(0 0 10px #00ffff); animation: spin-star 1.5s linear infinite; }
-    .star-purple { background-color: #aa00ff; filter: drop-shadow(0 0 10px #aa00ff); animation: spin-star 1.2s linear infinite; }
-    .star-red { background-color: #ff3366; filter: drop-shadow(0 0 12px #ff3366); animation: spin-star 0.7s linear infinite; }
+    .star-white  { background-color: #fff;    filter: drop-shadow(0 0 6px #fff);     animation: spin-star 2s linear infinite; }
+    .star-green  { background-color: #39ff6a; filter: drop-shadow(0 0 9px #39ff6a);  animation: spin-star 1.7s linear infinite; }
+    .star-yellow { background-color: #ffe600; filter: drop-shadow(0 0 9px #ffe600);  animation: spin-star 1.4s linear infinite; }
+    .star-orange { background-color: #ff9900; filter: drop-shadow(0 0 10px #ff9900); animation: spin-star 1.1s linear infinite; }
+    .star-red    { background-color: #ff3366; filter: drop-shadow(0 0 11px #ff3366); animation: spin-star 0.85s linear infinite; }
+    .star-purple { background-color: #aa00ff; filter: drop-shadow(0 0 12px #aa00ff); animation: spin-star 0.65s linear infinite; }
+    .star-darkpurple { background-color: #6a0dad; filter: drop-shadow(0 0 13px #b24bff); animation: spin-star 0.5s linear infinite; }
     .star-rainbow {
       background: linear-gradient(45deg, #ff3366, #ff9900, #00ffcc, #aa00ff);
       background-size: 200% 200%;
       filter: drop-shadow(0 0 14px #fff);
-      animation: spin-star 0.4s linear infinite, rainbow-bg 1s linear infinite;
+      animation: spin-star 0.35s linear infinite, rainbow-bg 1s linear infinite;
     }
 
     .text-black { color: #000; }
@@ -1615,6 +1661,14 @@
       height: 320px;
       z-index: 30;
       overflow: visible;
+      /* Was only declared on the #main-menu.menu-music/.menu-settings variants
+         below, which only matches while ENTERING one of those stages - the
+         moment that class comes off again (going back to home/play), this
+         selector stops matching, the transition disappears with it, and the
+         triangle snaps back instead of sliding. A transition belongs on the
+         element's own base rule so it applies no matter which direction the
+         state is changing. */
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .triforce-svg {
@@ -1625,6 +1679,15 @@
       z-index: 1;
       pointer-events: none;
       overflow: visible;
+      /* A slow idle float so the title screen still has some life to it
+         while sitting on the home tab doing nothing - .title-triangle
+         itself carries the stage-repositioning transform (music/settings
+         slide), so this lives on the SVG layer instead to avoid fighting it. */
+      animation: titleTriforceFloat 6s ease-in-out infinite;
+    }
+    @keyframes titleTriforceFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-7px); }
     }
     .triforce-fill {
       fill: url(#gradMusic);
@@ -1809,6 +1872,11 @@
       outline: none;
       appearance: none;
       -webkit-appearance: none;
+      /* The GAME MODES wedge's own scale(0.9) while on Music/Settings (see
+         the #main-menu.menu-music/.menu-settings rule below) never had a
+         transition anywhere, on either the base rule or that one - it always
+         snapped both in and back out. */
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
     }
     .title-panel::after {
       content: '';
@@ -1883,14 +1951,25 @@
     }
     .menu-stage.active {
       display: block;
+      /* Plain, transitionable values - NOT held by the entrance animation
+         below (which only runs once, on the .entering modifier, and gets
+         its class removed the moment it finishes - see setMenuStage). A
+         value held by animation-fill-mode:forwards overrides a plain
+         declared value for as long as the animation stays attached, which
+         used to mean .leaving's exit transition had nothing real to
+         interpolate FROM: the instant .active came off, the animation went
+         with it and opacity fell straight to the base rule's 0 with no
+         transition in between, instead of easing out. */
       opacity: 1;
       transform: translateY(0) scale(1);
-      animation: menuSlideUpIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       pointer-events: auto;
       z-index: 300;
     }
-    .menu-stage.active.enter-left {
-      animation: menuSlideInLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    .menu-stage.active.entering {
+      animation: menuSlideUpIn 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .menu-stage.active.entering.enter-left {
+      animation: menuSlideInLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .menu-stage.leaving {
       display: block !important;
@@ -2498,6 +2577,21 @@
     .diff-wheel.on-fire .dw-tire { filter: brightness(0.9); }
     .diff-wheel.on-fire .dw-name { color: #ff9a2e; text-shadow: 0 0 12px rgba(255,120,20,0.8); }
 
+    /* BOT PLAYSTYLE - sits under the level wheel, same show/hide. Plain
+       pill buttons rather than another 3D wheel; there are only 3 options
+       and none of them need a "how far from centre" readout the way 11
+       difficulty levels did. */
+    .dw-playstyle { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .dw-playstyle-label { font-size: 10px; font-weight: 900; letter-spacing: 2px; color: #888; }
+    .dw-playstyle-row { display: flex; gap: 4px; }
+    .dw-style-btn {
+      font-size: 9px; font-weight: 900; letter-spacing: 0.5px; padding: 5px 7px;
+      border-radius: 5px; border: 1.5px solid #444; background: #1c1c28; color: #999;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .dw-style-btn:hover { border-color: #777; color: #ccc; }
+    .dw-style-btn.active { border-color: #5be8ff; color: #5be8ff; background: rgba(91,232,255,0.12); box-shadow: 0 0 8px rgba(91,232,255,0.3); }
+
     .mode-viewport {
       position: relative;
       width: min(980px, 78vw);
@@ -2572,6 +2666,28 @@
       text-transform: uppercase;
       color: #fff;
       letter-spacing: 1px;
+    }
+    /* The deck's own pull-up, on top of the generic .menu-stage one the
+       whole panel already gets. Two coordinated pieces on the same stagger:
+       the CARD itself (border/background/glow - the actual card, which was
+       the ask) fades and un-blurs in place, while the inner text still gets
+       its own slightly bigger pop so the content still feels like it is the
+       thing arriving. Neither one touches .mode-card's own transform, which
+       is the carousel's 3D wheel-position set inline by updateModeCards() -
+       animating that directly would fight the wheel positioning. */
+    @keyframes modeCardBoxPopIn {
+      0%   { opacity: 0; filter: blur(5px); }
+      100% { opacity: 1; filter: blur(0); }
+    }
+    .mode-card.pop-in {
+      animation: modeCardBoxPopIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    @keyframes modeCardPopIn {
+      0%   { opacity: 0; transform: translateY(26px) scale(0.85); filter: blur(4px); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+    .mode-card-inner.pop-in {
+      animation: modeCardPopIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
     }
     .mode-card .mode-name {
       font-size: 18px;
@@ -2843,11 +2959,17 @@
       font-size: 18px;
       font-weight: 900;
       letter-spacing: 1px;
-      transition: all 0.2s;
+      /* Split out instead of "all" - colour/shadow fade at a calm linear
+         pace, but the scale gets its own quicker spring so a press reads as
+         a snap, not a fade. */
+      transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
       width: 320px;
       outline: none;
     }
     .menu-btn:hover, .menu-btn.selected, .menu-btn:focus { background-color: #5be8ff; color: #000; box-shadow: 0 0 25px rgba(91,232,255,0.7); transform: scale(1.05); }
+    /* Tactile press feedback - was entirely missing, so a click gave no
+       visual confirmation of its own beyond whatever happened next. */
+    .menu-btn:active { transform: scale(0.95); transition-duration: 0.08s; }
     .menu-btn.red { border-color: #ff3366; }
     .menu-btn.red:hover, .menu-btn.red.selected, .menu-btn.red:focus { background-color: #ff3366; box-shadow: 0 0 25px rgba(255,51,102,0.7); }
     .menu-btn.purple { border-color: #aa00ff; }
@@ -3393,11 +3515,25 @@
       100% { transform: rotate(var(--ot-rot, 0deg)) scaleY(0.88) scaleX(1.03) translateX(0); opacity: 0.72; }
     }
 
+    /* Paint-brush stroke attack: one tapered "bristle" dab (.projectile) with
+       a handful of smaller, fading dabs trailing behind it along its own
+       flight path (.projectile-trail, spawned and positioned by
+       updateProjectiles from each shot's recent-position history) - reads as
+       one ribbon of paint being flicked across the screen rather than a
+       rigid laser bolt. Colour is injected per-shot via inline style
+       (spawnProjectilesFrom) so it can match whichever tetromino sent it. */
     .projectile {
       position: absolute;
-      width: 90px; height: 3px;
-      background: linear-gradient(90deg, rgba(255,51,102,0) 0%, #ff3366 60%, #ffffff 100%);
-      border-radius: 2px; box-shadow: 0 0 10px 2px rgba(255,51,102,0.7); pointer-events: none; z-index: 9999; opacity: 0;
+      width: 52px; height: 16px;
+      border-radius: 50%;
+      pointer-events: none; z-index: 9999; opacity: 0;
+      mix-blend-mode: screen;
+    }
+    .projectile-trail {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none; z-index: 9998; opacity: 0;
+      mix-blend-mode: screen;
     }
 
     #bg-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
@@ -3446,6 +3582,38 @@
       border: none; color: #ff3366; font-size: 24px; font-weight: bold; cursor: pointer;
     }
     .tut-close:hover { color: #fff; text-shadow: 0 0 10px #ff3366; }
+
+    /* GLOBAL LEADERBOARD - same modal pattern as the tutorial box, cyan
+       instead of red so it reads as "records/stats" not "help". */
+    #leaderboard-modal {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10, 10, 16, 0.95); backdrop-filter: blur(8px);
+      z-index: 2000; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .leaderboard-box {
+      width: 460px; max-width: 90%; max-height: 80vh; background: #222233;
+      border: 2px solid #00ffcc; border-radius: 12px;
+      padding: 30px; position: relative; box-shadow: 0 0 30px rgba(0,255,204,0.4);
+      display: flex; flex-direction: column; align-items: center;
+      overflow-y: auto;
+    }
+    .leaderboard-box .tut-close { color: #00ffcc; }
+    .leaderboard-box .tut-close:hover { color: #fff; text-shadow: 0 0 10px #00ffcc; }
+    #leaderboard-title { color: #00ffcc; font-size: 24px; margin: 0 0 18px; letter-spacing: 2px; text-align: center; }
+    #leaderboard-list { width: 100%; }
+    .lb-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 8px; margin-bottom: 6px;
+      background: rgba(255,255,255,0.04);
+    }
+    .lb-row:nth-child(1) { background: rgba(255,214,0,0.12); }
+    .lb-row:nth-child(2) { background: rgba(200,200,220,0.10); }
+    .lb-row:nth-child(3) { background: rgba(205,127,50,0.12); }
+    .lb-rank { width: 28px; font-weight: 900; color: #8d93a6; text-align: center; flex-shrink: 0; }
+    .lb-name { flex: 1; color: #fff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-value { color: #00ffcc; font-weight: 900; letter-spacing: 0.5px; flex-shrink: 0; }
+    .lb-empty { color: #8d93a6; font-size: 14px; padding: 20px 0; text-align: center; }
     .tut-page { display: none; width: 100%; text-align: center; color: #ccc; font-size: 18px; line-height: 1.6; min-height: 280px; }
     .tut-page.active { display: block; animation: menuSlideUpIn 0.4s ease forwards; }
     .tut-page h3 { color: #00ffcc; font-size: 28px; margin-bottom: 20px; letter-spacing: 2px; }
@@ -4258,25 +4426,11 @@
       }
       #p1-overtime-mult, #p2-overtime-mult { font-size: 12px !important; }
 
-      .badges-container { width: auto; margin: 0; gap: 4px; }
-      .b2b-badge { width: 32px; height: 32px; }
-      .b2b-text { font-size: 14px; }
+      .badges-container { gap: 4px; }
+      .b2b-badge { width: calc(var(--b2b-size, 55px) * 0.58); height: calc(var(--b2b-size, 55px) * 0.58); }
+      .b2b-text { font-size: calc(var(--b2b-text-size, 24px) * 0.58); }
       .combo-display { width: auto; min-height: auto; margin: 4px 0 0; }
 
-      /* Clear-type banners read better floating over the board than squeezed
-         into a strip, and the strip has no vertical room for them anyway. */
-      .action-wrapper {
-        position: absolute;
-        top: 34%;
-        left: 0;
-        right: 0;
-        width: 100%;
-        height: 64px;
-        margin-top: 0;
-        margin-bottom: 0;
-        pointer-events: none;
-        z-index: 6;
-      }
 
       /* The dial has to survive the horizontal strip layout, so it is pulled out
          of the row flow and shrunk rather than squeezed. */
@@ -4291,7 +4445,7 @@
       .tut-btn { font-size: 11px; padding: 7px 9px; letter-spacing: 0.5px; }
       .tut-b2b-log { font-size: 12px; padding: 6px 9px; }
       .tb-tier { font-size: 9px; padding: 3px 6px 3px 2px; }
-      .action-text { font-size: 28px; text-shadow: 0 0 6px #000, 0 0 14px rgba(255,255,255,0.9); }
+      .action-text { font-size: 26px; }
 
       /* Reserve most of the two hidden buffer rows. The remainder overlaps the
          NEXT strip's padding, so the stack is raised above it. */
@@ -4418,6 +4572,15 @@
     </div>
   </div>
 
+  <!-- GLOBAL LEADERBOARD MODAL -->
+  <div id="leaderboard-modal" style="display: none;">
+    <div class="leaderboard-box">
+      <button class="tut-close" onclick="closeLeaderboard()">X</button>
+      <h2 id="leaderboard-title">LEADERBOARD</h2>
+      <div id="leaderboard-list"></div>
+    </div>
+  </div>
+
   <!-- TUTORIAL MODAL -->
   <div id="tutorial-modal" style="display: none;">
     <div class="tutorial-box">
@@ -4478,10 +4641,13 @@
 
          <div class="tut-b2b-tiers">
             <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-white"></div><div class="b2b-text text-black">2</div></div><span><b style="color:#fff;">B2B 2-4</b><br>x1.5 score</span></div>
-            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-cyan"></div><div class="b2b-text text-black">5</div></div><span><b style="color:#00ffff;">B2B 5-7</b><br>Shock</span></div>
-            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-purple"></div><div class="b2b-text text-white">8</div></div><span><b style="color:#aa00ff;">B2B 8-11</b><br>High voltage</span></div>
-            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-red"></div><div class="b2b-text text-white">12</div></div><span><b style="color:#ff3366;">B2B 12-14</b><br>Critical</span></div>
-            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-rainbow"></div><div class="b2b-text text-white">15</div></div><span><b style="color:#ff9900;">B2B 15+</b><br>Overload</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-green"></div><div class="b2b-text text-black">5</div></div><span><b style="color:#39ff6a;">B2B 5-7</b><br>Shock</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-yellow"></div><div class="b2b-text text-black">8</div></div><span><b style="color:#ffe600;">B2B 8-10</b><br>High voltage</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-orange"></div><div class="b2b-text text-black">11</div></div><span><b style="color:#ff9900;">B2B 11-14</b><br>Overdrive</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-red"></div><div class="b2b-text text-white">15</div></div><span><b style="color:#ff3366;">B2B 15-18</b><br>Critical</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-purple"></div><div class="b2b-text text-white">19</div></div><span><b style="color:#aa00ff;">B2B 19-22</b><br>Meltdown</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-darkpurple"></div><div class="b2b-text text-white">23</div></div><span><b style="color:#b24bff;">B2B 23-25</b><br>Overload</span></div>
+            <div class="tb-tier"><div class="b2b-badge active"><div class="b2b-star star-rainbow"></div><div class="b2b-text text-white">26</div></div><span><b style="color:#ff9900;">B2B 26+</b><br>MAXIMUM</span></div>
          </div>
       </div>
 
@@ -4691,6 +4857,17 @@
           </div>
           <div class="dw-name" id="dw-name">BALANCED</div>
           <div class="dw-hint">SCROLL OR DRAG</div>
+
+          <!-- Independent of the level wheel above - level is how fast/sharp
+               the bot plays, style is what it's actually trying to do. -->
+          <div class="dw-playstyle" id="dw-playstyle">
+            <div class="dw-playstyle-label">STYLE</div>
+            <div class="dw-playstyle-row">
+              <button type="button" class="dw-style-btn" data-style="survivor" onclick="setBotPlaystyle('survivor'); event.stopPropagation();">SAFE</button>
+              <button type="button" class="dw-style-btn active" data-style="balanced" onclick="setBotPlaystyle('balanced'); event.stopPropagation();">NORMAL</button>
+              <button type="button" class="dw-style-btn" data-style="tricky" onclick="setBotPlaystyle('tricky'); event.stopPropagation();">TRICKY</button>
+            </div>
+          </div>
         </div>
 
         <!-- Tutorial's own track choice, same slot/pattern as the bot
@@ -4729,6 +4906,17 @@
           <button type="button" class="settings-subtab" id="settings-subtab-handling" onclick="switchSettingsSubtab('handling')">HANDLING</button>
         </div>
         <div class="settings-grid" id="settings-grid-general">
+          <!-- The name attached to anything submitted to the global
+               leaderboard - its own localStorage key (see getPlayerName/
+               setPlayerName), not bundled into the rest of this settings
+               blob, so it survives independent of every other preference. -->
+          <div class="control-group" id="ctrl-playerName">
+            PLAYER NAME
+            <input id="playerNameInput" type="text" maxlength="20" placeholder="Anonymous"
+                   style="width: 120px; height: 36px; padding: 0 8px; border-radius: 6px; border: 2px solid #555; background: #333344; color: #fff; font-weight: 700; text-align: center; font-family: inherit;"
+                   onchange="this.value = setPlayerName(this.value);">
+          </div>
+
           <div class="control-group" id="ctrl-bg">
             BACKGROUNDS
             <button id="bgToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleBgSetting(); this.blur();" onfocus="setMenuIndex(0)">ON</button>
@@ -4801,6 +4989,10 @@
           <div class="control-group" id="ctrl-theme">THEME
             <select id="themeSelect" onchange="this.blur(); updateThemePreview(this.value); saveSettings();" onfocus="setMenuIndex(8)">
               <option value="classic">CLASSIC</option>
+              <!-- V2 BETA only - see updateThemeOptionsAvailability(), which
+                   enables/hides this the same way other V2-only features gate
+                   themselves off when the setting is off. -->
+              <option value="classicV2" id="themeOpt-classicV2">CLASSIC V2</option>
               <option value="cyberpunk">CYBERPUNK</option>
               <option value="neon">NEON</option>
               <option value="slime">SLIME</option>
@@ -4975,6 +5167,7 @@
 
       <div class="results-btns">
         <button class="menu-btn overlay-nav-btn" id="resumeBtn" onclick="togglePause()">RESUME</button>
+        <button class="menu-btn overlay-nav-btn" id="go-leaderboard-btn" style="display:none;" onclick="openLeaderboard()">LEADERBOARD</button>
         <button class="menu-btn overlay-nav-btn" onclick="restartGame()">RESTART</button>
         <button class="menu-btn overlay-nav-btn" onclick="backToMenu()">MAIN MENU</button>
       </div>
@@ -5016,11 +5209,6 @@
         <div class="panel-title">HOLD (C)</div>
         <canvas id="p1-hold" class="hold-canvas" width="80" height="80" style="cursor: pointer;" title="Click to hold"></canvas>
 
-        <!-- Clear banners now sit right under HOLD instead of above it. -->
-        <div class="action-wrapper">
-          <div id="p1-action" class="action-text"></div>
-        </div>
-
         <div class="panel-divider"></div>
 
         <div class="stats-group" style="margin-top: 0;">
@@ -5048,8 +5236,16 @@
           </div>
         </div>
 
-        <!-- SURVIVAL: incoming garbage dial + wave readout, styled as its own
-             card so it reads as "the danger module" rather than more stats. -->
+        <!-- Clear-type banner (SINGLE, B2B, etc) - the space right under
+             APM/PPS, its own row in the HUD column. -->
+        <div class="action-wrapper">
+          <div id="p1-action" class="action-text"></div>
+        </div>
+
+        <!-- SURVIVAL: incoming garbage dial + wave readout - its own
+             separate card below the banner row, so the two never compete
+             for the same space. Reads as "the danger module" rather than
+             more stats. -->
         <div id="p1-survival-hud" class="survival-hud">
           <div class="sv-wave-row">
             <span class="sv-wave-chip">
@@ -5073,16 +5269,17 @@
                you actually act on. -->
           <div class="sv-count" id="p1-sv-eta">0.0s</div>
         </div>
+      </div>
 
-        <div class="badges-container">
+      <div class="board-stack">
+        <!-- Lives in the gap between HOLD and the board itself (see
+             .badges-container) rather than inside the HOLD panel's flow. -->
+        <div class="badges-container" id="p1-badges-container">
           <div class="b2b-badge" id="p1-b2b-badge">
             <div class="b2b-star star-white" id="p1-b2b-star"></div>
             <div class="b2b-text text-black" id="p1-b2b-text">0</div>
           </div>
         </div>
-      </div>
-
-      <div class="board-stack">
         <canvas id="p1-buffer" class="buffer-canvas" width="340" height="96"></canvas>
         <canvas id="p1-game" class="main-canvas" width="340" height="640"></canvas>
         <div class="danger-indicator" id="p1-danger">
@@ -5184,17 +5381,6 @@
         <div class="panel-title">HOLD</div>
         <canvas id="p2-hold" class="hold-canvas" width="80" height="80"></canvas>
 
-        <div class="action-wrapper">
-          <div id="p2-action" class="action-text"></div>
-        </div>
-
-        <div class="badges-container" style="margin-top: 0; margin-bottom: 0;">
-          <div class="b2b-badge" id="p2-b2b-badge">
-            <div class="b2b-star star-white" id="p2-b2b-star"></div>
-            <div class="b2b-text text-black" id="p2-b2b-text">0</div>
-          </div>
-        </div>
-
         <div class="stats-group" style="margin-top: 8px;">
           <div id="p2-stats-endless" style="display:none; flex-direction:column; align-items:center; width:100%;">
             <div class="panel-title">LEVEL</div><div class="score-value" id="p2-level">1</div>
@@ -5214,8 +5400,18 @@
             <div id="p2-overtime-mult" style="font-size: 18px;">GARBAGE x2</div>
           </div>
         </div>
+
+        <div class="action-wrapper">
+          <div id="p2-action" class="action-text"></div>
+        </div>
       </div>
       <div class="board-stack">
+        <div class="badges-container" id="p2-badges-container">
+          <div class="b2b-badge" id="p2-b2b-badge">
+            <div class="b2b-star star-white" id="p2-b2b-star"></div>
+            <div class="b2b-text text-black" id="p2-b2b-text">0</div>
+          </div>
+        </div>
         <canvas id="p2-buffer" class="buffer-canvas" width="340" height="96"></canvas>
         <canvas id="p2-game" class="main-canvas" width="340" height="640"></canvas>
         <div class="danger-indicator" id="p2-danger">
@@ -5274,6 +5470,13 @@
       <button type="button" class="touch-btn touch-btn-drop touch-btn-label" id="tc-drop" aria-label="Hard Drop">DROP</button>
     </div>
   </div>
+  <!-- Global leaderboard backend (Supabase) - only external dependency in
+       this file. Loaded before the main script so `supabase.createClient`
+       is ready by the time LEADERBOARD setup below runs. The anon key is
+       meant to be public (it only grants what the scores table's own row
+       level security policies allow - insert and select, nothing else) -
+       it is not a secret the way an API server key would be. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
     // --- MUSIC PLAYER GLOBALS & LOGIC ---
     const PLAYLISTS = {
@@ -5554,9 +5757,200 @@
     // --- VERSION & PATCH NOTES ---
     // To ship a new version: bump GAME_VERSION and add an entry to the TOP of
     // PATCH_NOTES. Tags are 'new', 'fix' or 'change'.
-    const GAME_VERSION = '1.92';
+    // Staying on the 1.x line past .99 on purpose - the number after the dot
+    // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
+    // then 1.101, and so on. Never roll over to 2.0.
+    const GAME_VERSION = '1.112';
 
     const PATCH_NOTES = [
+      {
+        version: '1.112',
+        date: '9 Oct 2026',
+        title: 'Global leaderboards',
+        changes: [
+          { tag: 'new', text: '<b>A real global leaderboard.</b> Set a new personal best in Endless, Sprint, Survival, Puzzles or Endurance and it is submitted to a shared public board automatically - press LEADERBOARD on the results screen to see where you rank against everyone else, per mode and per game speed.' },
+          { tag: 'new', text: '<b>PLAYER NAME setting</b> (Settings - General) - the name attached to anything you submit. Defaults to Anonymous if never set.' }
+        ]
+      },
+      {
+        version: '1.111',
+        date: '8 Oct 2026',
+        title: 'The actual reason menu tabs snapped shut instead of fading',
+        changes: [
+          { tag: 'fix', text: '<b>Found the real cause of the menu still not fading out smoothly: the outgoing panel was being yanked to display:none at 140ms, well before its own 400ms fade/slide/blur-out transition had finished</b> - cutting a real transition short into what read as an instant snap. It gets the full 400ms to finish now.' },
+          { tag: 'fix', text: '<b>Also fixed the thing that was silently causing that in the first place:</b> the entering panel\'s resting opacity/transform used to stay held by its one-shot entrance animation indefinitely (fill-mode: forwards). An animation-held value overrides a plain one for as long as it is attached, so the moment the panel started leaving, that value evaporated instantly instead of handing off to a transition. The entrance animation now detaches itself the moment it finishes, leaving a plain, genuinely transitionable value behind.' },
+          { tag: 'change', text: '<b>GAME MODES\' pop-in is on the cards themselves now, not just the text inside them.</b> Each card\'s own border/background fades and un-blurs into place on the same stagger as its text, so the deck reads as cards arriving rather than text appearing inside boxes that were already sitting there.' }
+        ]
+      },
+      {
+        version: '1.110',
+        date: '8 Oct 2026',
+        title: 'Fixed the Music/Settings teleport, GAME MODES gets a real pull-up',
+        changes: [
+          { tag: 'fix', text: '<b>Going from Music or Settings back to the main menu used to just teleport instead of animating.</b> The triangle\'s slide-over transition was only ever declared on the rule that matches while ENTERING Music/Settings - the instant you leave, that rule stops matching and the transition disappears with it, so it snapped back with no animation. It is on the triangle\'s own base rule now, so it eases smoothly both ways. The GAME MODES wedge\'s own little scale had the identical bug (never animated in either direction) and is fixed the same way.' },
+          { tag: 'new', text: '<b>The GAME MODES deck gets its own proper pull-up now</b> when you navigate into it - each card pops up and fades in on its own slight stagger, instead of the whole deck just relying on the same flat panel slide every other menu tab uses.' }
+        ]
+      },
+      {
+        version: '1.109',
+        date: '8 Oct 2026',
+        title: 'Smoother menu buttons, a little life in the title screen',
+        changes: [
+          { tag: 'new', text: '<b>Menu buttons actually press now.</b> Clicking one used to give no feedback of its own beyond whatever happened next - there is a real tactile squash-down now, with its own quicker spring so it reads as a snap rather than a fade.' },
+          { tag: 'change', text: '<b>Menu button hover/select transitions are smoother.</b> They used to fade every property (colour, glow, scale) on one flat "all 0.2s" - colour and glow still ease calmly, but the scale now has its own springier curve so growing into a hover feels less mechanical.' },
+          { tag: 'new', text: '<b>The title screen\'s triforce has a slow idle float</b> now, so the home screen still has some life to it while just sitting there - previously only the TETRAINER letters themselves had any continuous idle motion (their glow), and the triangle sat completely still.' }
+        ]
+      },
+      {
+        version: '1.108',
+        date: '8 Oct 2026',
+        title: 'T-spins have a theme voice too now',
+        changes: [
+          { tag: 'fix', text: '<b>Landing a T-spin always played the exact same reward chord no matter what theme you were on.</b> Every other piece sound in the game (lock, rotate, hard drop...) is themed; this one quietly never was. The chord itself is unchanged - it is the actual payoff - but it now carries a themed accent on top, the same way landTouch/lock already layer their own colour over a shared base sound.' }
+        ]
+      },
+      {
+        version: '1.107',
+        date: '8 Oct 2026',
+        title: 'Real lock sounds for Cyberpunk, Paint, Clouds and Steampunk',
+        changes: [
+          { tag: 'new', text: '<b>Four themes get their own piece-lock sound</b> instead of falling back to the plain default click - the one sound you hear on literally every single piece. Cyberpunk gets a digital snap with a chip-tune confirmation blip, Paint a soft dab with a little spatter, Clouds a gentle airy chime, and Steampunk a metallic clank with a hiss of steam. Every other theme already had its own; this was the last gap.' }
+        ]
+      },
+      {
+        version: '1.106',
+        date: '6 Oct 2026',
+        title: 'Clear banner back under APM/PPS, B2B badge visible in Survival V2',
+        changes: [
+          { tag: 'fix', text: '<b>The clear-type banner is back in the HUD column, under APM/PPS.</b> Floating it above the board in the hidden buffer rows turned out invisible in real play.' },
+          { tag: 'fix', text: '<b>The B2B badge was rendering behind Survival V2\'s rocket-fin overlay</b> and disappearing under it. It now sits in front, same as everywhere else.' }
+        ]
+      },
+      {
+        version: '1.105',
+        date: '6 Oct 2026',
+        title: 'Clear banner floats above the board, COMBO has its own lane',
+        changes: [
+          { tag: 'change', text: '<b>The clear-type banner (SINGLE, B2B...) is out of the HUD card again</b> - no background/chrome, floating in the empty header space above the board itself (the hidden buffer rows, where there is nothing else to look at) instead of being boxed into the stats column or sitting over the middle of play.' },
+          { tag: 'fix', text: '<b>COMBO no longer reaches into the board\'s own space.</b> It used to pull left with a negative margin to sit half over the board\'s edge (and briefly, behind it entirely). Capped to the NEXT panel\'s own width now, with no overflow either way, so it stays in its own lane next to the board instead of overlapping it.' }
+        ]
+      },
+      {
+        version: '1.104',
+        date: '6 Oct 2026',
+        title: 'Clear banner back in the HUD, Colosseum has some life in it',
+        changes: [
+          { tag: 'change', text: '<b>The clear-type banner (SINGLE, B2B...) moved back into the HUD column</b>, in the space right under APM/PPS - floating over the middle of the board turned out to read as sitting in the way of play, not next to it. No glow any more either: thinner weight, bigger size, a plain readable wordmark instead of something trying to glow like it is lit from the board.' },
+          { tag: 'new', text: '<b>Survival\'s incoming-attack dial has its own clearly separate space again</b> now that the banner has somewhere else to live, instead of the two competing for the same spot under HOLD.' },
+          { tag: 'fix', text: '<b>Fixed the COMBO counter rendering behind the board instead of over it.</b> It is not a positioned element, and an un-positioned sibling always paints behind anything with a positive z-index in the same stacking context (the board\'s canvas) regardless of DOM order - it only ever looked right by accident before.' },
+          { tag: 'new', text: '<b>The Colosseum has some real ambient motion now:</b> faint embers drifting up off the torches, and a slow conveyor of small rubble sliding along the base of the front wall - the arena no longer sits completely still when nothing else is happening.' }
+        ]
+      },
+      {
+        version: '1.103',
+        date: '6 Oct 2026',
+        title: '8 real B2B tiers, and a more detailed Colosseum',
+        changes: [
+          { tag: 'change', text: '<b>B2B now has 8 real tiers instead of 5, and the colours actually climb through the spectrum: </b>white (2-4), green (5-7), yellow (8-10), orange (11-14), red (15-18), purple (19-22), dark neon purple (23-25) and rainbow (26+). Every place the chain shows up - the badge, the board-rim flash, the release attack, the discharge shock - now pulls from one single shared list, so they can never drift out of sync with each other again. The How To Play chart and the interactive B2B page are both updated to match.' },
+          { tag: 'fix', text: '<b>Removed the circular raked-sand rings in the middle of the Colosseum\'s pit floor</b> - they read as a bullseye painted on the ground rather than texture. Replaced with scattered rake streaks and fine sand grain instead.' },
+          { tag: 'new', text: '<b>More detail throughout the Colosseum:</b> soft god-rays fanning down from the sun, small pennant flags snapping along the far rim, real mortared brick texture on the front wall, and a carved medallion centred on it between the torches.' }
+        ]
+      },
+      {
+        version: '1.102',
+        date: '6 Oct 2026',
+        title: 'B2B release actually hits the board, and a slimmer HUD',
+        changes: [
+          { tag: 'new', text: '<b>Cashing in a B2B RELEASE now actually slams the enemy board</b> - the same fading full-board mark a hard drop leaves behind it, coloured for the tier you just cashed in, plus a real shake on impact. It used to just quietly add to the garbage queue.' },
+          { tag: 'change', text: '<b>The clear-type banner (SINGLE, DOUBLE, B2B...) moved out of the HOLD panel and floats directly over the board now</b> - bigger, softer (a wide blurred glow instead of a hard outline) so it reads as light sitting on the board rather than a label pasted next to it. HOLD itself is narrower to make room.' },
+          { tag: 'new', text: '<b>VS and Spectate show the same V2 BADGE Survival\'s card already had</b> when V2 BETA is on, instead of only Survival flagging itself.' },
+          { tag: 'change', text: '<b>The Colosseum crowd\'s reaction to a hit is scoped to whichever side actually got hit</b>, not the whole arena at once, and throws real (much smaller) sparks instead of a full-screen colour wash. The paint-stroke attack itself is a full rainbow sweep now with a much longer fading tail, instead of being tinted by the piece that threw it.' }
+        ]
+      },
+      {
+        version: '1.101',
+        date: '6 Oct 2026',
+        title: 'The Colosseum, a real paint-stroke attack, and a bigger B2B badge',
+        changes: [
+          { tag: 'new', text: '<b>A V2 BETA map for VS and BOT VS BOT: THE COLOSSEUM.</b> The boards sit in the pit of a packed stone arena seen from a spectator\'s own seat (a gentle handheld sway, not a detached camera) - tiered seating fading from hazy and distant up top to warm and torch-lit down low, arches, hanging cyan/magenta banners, real flickering torch fire, a raked sand floor and drifting dust. Landing real damage makes the whole crowd roar: they brighten, throw an arm up and the arena gets a brief warm wash, scaled to the hit.' },
+          { tag: 'change', text: '<b>The VS damage attack is a paint-brush stroke now, not a laser.</b> It is coloured by whichever tetromino actually sent it, moves faster than the old bolt, and drags a real fading ribbon of smaller dabs behind its head instead of being one rigid bar.' },
+          { tag: 'change', text: '<b>The B2B badge moved out of the HOLD panel and into the gap between HOLD and the board itself</b> - it was always tucked at the bottom of a card before, now it reads as its own thing sitting between the two. It also visibly grows a size at every tier instead of just changing colour, the board\'s rim flashes once in the tier colour every time the chain actually grows, and cashing in a chain now flings real shards outward from the badge on top of its existing scale-and-fade.' },
+          { tag: 'change', text: '<b>Bots can now tuck and soft-drop mid-fall instead of only ever dropping straight down from their spawn rotation.</b> TRICKY specifically plans its T-spins through the real move graph (shift, drop, rotate, in whatever order actually reaches the pocket) instead of trying one kick off a straight drop, so it can set up spins a straight drop could never reach.' }
+        ]
+      },
+      {
+        version: '1.100',
+        date: '4 Oct 2026',
+        title: 'Bot playstyles: SAFE, NORMAL and TRICKY',
+        changes: [
+          { tag: 'new', text: '<b>A STYLE picker under the BOT LEVEL wheel (VS/BOT VS BOT)</b>, independent of the level itself - level is how fast/sharp the bot plays, style is what it is actually trying to do.' },
+          { tag: 'new', text: '<b>SAFE (survivor):</b> takes every clear the instant it can get it instead of waiting for a bigger one, and weighs holes/height/bumpiness noticeably harder than before - staying alive beats scoring well.' },
+          { tag: 'new', text: '<b>TRICKY:</b> actually plays for back-to-back - it keeps an active B2B chain going and won\'t cash it in for a throwaway single/double/triple unless the board is genuinely getting dangerous, and it rewards keeping a T-spin pocket open while there\'s still room to, instead of flattening it away by accident. Drops that preference the moment the stack gets risky - it stays "safely alive" over chasing the setup.' },
+          { tag: 'new', text: '<b>NORMAL</b> is the original bot behaviour, completely unchanged.' }
+        ]
+      },
+      {
+        version: '1.99',
+        date: '2 Oct 2026',
+        title: 'CLASSIC V2, pixel-matched to the reference this time',
+        changes: [
+          { tag: 'fix', text: '<b>CLASSIC V2 blocks no longer have a gap around every cell.</b> A 2px inset meant same-piece neighbours never actually touched, so a whole piece read as separate floating tiles instead of one solid shape - cells are full-bleed now. Resampled the shading directly from a 10x zoom of the reference too: it is a distinctly BANDED glossy highlight (a bright top sliver, flat saturated middle, a darker band at the bottom), not the soft 2-stop blend used before.' }
+        ]
+      },
+      {
+        version: '1.98',
+        date: '2 Oct 2026',
+        title: 'CLASSIC V2 is now Monnetic Tech',
+        changes: [
+          { tag: 'change', text: '<b>CLASSIC V2 is now a direct match for "Monnetic Tech"</b> from the reference palette chart - a glossy bordered chiclet per cell: flat saturated colour, a soft highlight band across the upper half, rounded corners, and a thick dark border around every individual cell. New colours to match that sheet too (bright cyan/blue/orange/yellow/green/purple/red).' }
+        ]
+      },
+      {
+        version: '1.97',
+        date: '2 Oct 2026',
+        title: 'CLASSIC V2 gets its own palette, the Survival rocket hardened to Survival only',
+        changes: [
+          { tag: 'change', text: '<b>CLASSIC V2 has its own palette now</b> instead of reusing classic\'s exact colours - pulled straight from Tetrainer\'s own established accents: I is the exact cyan every menu panel and the cursor already use, T is the exact violet the title letters end on, Z and L are the same red/orange the mode-select cards already use. Same 7-piece layout you already know, tied to this game\'s own identity instead of a generic guideline palette.' },
+          { tag: 'fix', text: '<b>The cyan brand accent now has a dark backing</b> so it still reads clearly on the I piece, which is this exact same cyan - without it the accent nearly vanished into its own fill on that one piece.' },
+          { tag: 'fix', text: '<b>The Survival rocket (and its K.O. fizzle) is now hard-locked to Survival specifically,</b> not just whatever the background mode happens to be set to - it checks the actual game mode directly now, on top of the existing check, so it can never show anywhere else under any circumstance.' }
+        ]
+      },
+      {
+        version: '1.96',
+        date: '2 Oct 2026',
+        title: 'CLASSIC V2 gets Tetrainer\'s own cyan instead of per-piece glow, a louder tok',
+        changes: [
+          { tag: 'change', text: '<b>CLASSIC V2, take three.</b> The messy part of the original was 7 different pieces each blooming their OWN colour with no shared light source - not the idea of standing out. It keeps attempt two\'s flat colour and diagonal hatch texture, and adds back one crisp, never-blurred accent in Tetrainer\'s own signature cyan (the exact colour every menu panel and button border already uses) - a small corner tab and a thin top rim, the same on every block regardless of its own colour. Reads as "this is Tetrainer\'s skin" instead of as a glow.' },
+          { tag: 'change', text: '<b>The landing tok is noticeably louder</b> - close to double its previous volume, so it actually cuts through instead of needing to listen for it.' }
+        ]
+      },
+      {
+        version: '1.95',
+        date: '2 Oct 2026',
+        title: 'A calmer rock-on-rock landing tick, CLASSIC V2 without the glow',
+        changes: [
+          { tag: 'change', text: '<b>The landing tick is modeled on a rock settling onto rock now</b> - a short, rounded "tok" (the stones actually touching) over a deeper, louder lowpass thump underneath, instead of a thinner click-plus-noise pairing.' },
+          { tag: 'change', text: '<b>CLASSIC V2, take two: no glow, no bevel, no reflection.</b> Both were a lighting effect, and a whole board of individually "lit" blocks with no consistent light source just read as noise. Blocks are flat classic colour again with a fine diagonal hatch at one constant opacity - texture, not light, is what gives it presence now.' }
+        ]
+      },
+      {
+        version: '1.94',
+        date: '2 Oct 2026',
+        title: 'A landing tick with real weight, CLASSIC V2 with real personality',
+        changes: [
+          { tag: 'change', text: '<b>The landing tick actually has presence now.</b> It was getting lost under everything else - a lowpass noise thump now gives it real body under every theme\'s own click, and the click itself is roughly triple the volume and duration it was.' },
+          { tag: 'change', text: '<b>CLASSIC V2 reworked with real personality</b> instead of a timid tint. Blocks are now a beveled two-tone "keycap" face - a genuinely lighter facet catching the light top-left, a genuinely darker one falling away bottom-right - with a bright rim tracing the lit edge and a soft colour-matched glow so they actually pop off the dark board. Still classic\'s own colours and flat simplicity underneath, just with some real weight to it.' }
+        ]
+      },
+      {
+        version: '1.93',
+        date: '2 Oct 2026',
+        title: 'CLASSIC V2 skin, and a landing tick for soft drop',
+        changes: [
+          { tag: 'new', text: '<b>CLASSIC V2 theme</b> (V2 BETA only, THEME dropdown). Same iconic flat classic palette, finished properly: real rounded corners instead of square-cut ones, a soft top-lit/bottom-shaded gradient for one subtle hint of depth, and a crisp dark edge instead of the original flat 30%-black outline. Still unmistakably classic, just not 2009-flat.' },
+          { tag: 'new', text: '<b>A quiet landing tick.</b> The instant a piece first touches down - floor or stack - it now gets a small, dull "tick" distinct from the lock sound, so soft-dropping doesn\'t go straight from the fall to the lock clack with nothing marking the moment it actually landed. Fires once per landing, not on every move/spin while it sits there (those already have their own sfx).' }
+        ]
+      },
       {
         version: '1.92',
         date: '2 Oct 2026',
@@ -6984,14 +7378,15 @@
     const tutB2BCtx = tutB2BCanvas.getContext('2d');
     let tutB2B = { count: 0, banked: 0, flash: 0, release: 0, releaseDmg: 0, shards: [] };
 
-    // Must stay in step with the badge tiers in updateStatsUI.
+    // Delegates to the real B2B_TIERS/getB2BTier (defined later in the file,
+    // but this only ever runs from the rAF loop below, well after the whole
+    // script has loaded) so the tutorial can never drift out of sync with
+    // the actual in-game badge again.
+    const TUT_B2B_TIER_NAMES = ['CHAINED', 'SHOCK', 'HIGH VOLTAGE', 'OVERDRIVE', 'CRITICAL', 'MELTDOWN', 'OVERLOAD', 'MAXIMUM'];
     function tutB2BTier(n) {
-      if (n >= 15) return { name: 'OVERLOAD', color: '#ff9900', rainbow: true };
-      if (n >= 12) return { name: 'CRITICAL', color: '#ff3366' };
-      if (n >= 8)  return { name: 'HIGH VOLTAGE', color: '#aa00ff' };
-      if (n >= 5)  return { name: 'SHOCK',    color: '#00ffff' };
-      if (n >= 2)  return { name: 'CHAINED',  color: '#ffffff' };
-      return { name: 'NO CHAIN', color: '#666677' };
+      if (n < 2) return { name: 'NO CHAIN', color: '#666677' };
+      const tier = getB2BTier(n);
+      return { name: TUT_B2B_TIER_NAMES[tier.index - 1], color: tier.color, rainbow: tier.color === 'rainbow' };
     }
 
     function tutB2BLog(html) {
@@ -7400,6 +7795,117 @@
     const BESTS_KEY = 'tetrainerBests';
     let personalBests = {};
 
+    // --- GLOBAL LEADERBOARD (Supabase) ---
+    // One public "scores" table, row-level security limited to insert+select
+    // only (see the project's setup SQL) - nobody can edit or delete another
+    // player's row through this public connection, only add their own. The
+    // anon key below is meant to be shipped client-side; it only grants
+    // whatever those RLS policies allow, it is not an admin credential.
+    const SUPABASE_URL = 'https://sdsxfbhclvffagrctmui.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkc3hmYmhjbHZmZmFncmN0bXVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0Nzk4MjcsImV4cCI6MjEwNzA1NTgyN30.eQdrcxUnAt8-tVO6OTi_P0BTcTrNNZp7xtZtb7J1_ro';
+    // Guarded: the CDN script can fail to load (offline, ad-blocker, etc.)
+    // and the game must keep working as a fully local experience either way.
+    const sbClient = (typeof supabase !== 'undefined' && supabase.createClient)
+        ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        : null;
+
+    const PLAYER_NAME_KEY = 'tetrainerPlayerName';
+    function getPlayerName() {
+        try {
+            const name = localStorage.getItem(PLAYER_NAME_KEY);
+            return name && name.trim() ? name.trim().slice(0, 20) : 'Anonymous';
+        } catch (e) { return 'Anonymous'; }
+    }
+    function setPlayerName(name) {
+        const clean = (name || '').trim().slice(0, 20) || 'Anonymous';
+        try { localStorage.setItem(PLAYER_NAME_KEY, clean); } catch (e) { /* ignore */ }
+        return clean;
+    }
+
+    // Fire-and-forget on purpose - a failed submission (offline, momentary
+    // Supabase hiccup, RLS rejection) should never interrupt or error out
+    // the player's own run. It only ever adds one row to a public board;
+    // nothing about the local game depends on it succeeding.
+    async function submitScoreToLeaderboard(mode, speedLabel, value, text) {
+        if (!sbClient) return;
+        try {
+            await sbClient.from('scores').insert({
+                player_name: getPlayerName(),
+                mode,
+                speed_label: speedLabel,
+                value,
+                display_text: text
+            });
+        } catch (e) { /* best-effort - see comment above */ }
+    }
+
+    async function fetchLeaderboard(mode, speedLabel, limit = 10) {
+        if (!sbClient) return [];
+        try {
+            const { data, error } = await sbClient
+                .from('scores')
+                .select('player_name, display_text, value, created_at')
+                .eq('mode', mode)
+                .eq('speed_label', speedLabel)
+                .order('value', { ascending: false })
+                .limit(limit);
+            if (error) return [];
+            return data || [];
+        } catch (e) { return []; }
+    }
+
+    // Names and display text in the scores table come from OTHER players -
+    // the insert policy only checks length/mode, never content, so this is
+    // untrusted text and gets rendered via innerHTML below. Escaping it here
+    // is what keeps someone else's score entry from being able to run script
+    // in your browser.
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = String(str == null ? '' : str);
+        return div.innerHTML;
+    }
+
+    async function openLeaderboard() {
+        const modal = document.getElementById('leaderboard-modal');
+        const list = document.getElementById('leaderboard-list');
+        const title = document.getElementById('leaderboard-title');
+        if (!modal || !list || !title) return;
+
+        const mode = gameMode;
+        const speedLabel = SPEED_PRESETS[speedIdx].label;
+        const label = (BEST_LABELS[mode] || 'LEADERBOARD').replace('BEST ', '');
+        title.innerText = `${label} - ${mode.toUpperCase()} @ ${speedLabel}`;
+        list.innerHTML = '<div class="lb-empty">Loading...</div>';
+        modal.style.display = 'flex';
+
+        if (!sbClient) {
+            list.innerHTML = '<div class="lb-empty">Leaderboard unavailable right now.</div>';
+            return;
+        }
+
+        const rows = await fetchLeaderboard(mode, speedLabel, 10);
+        // The modal may have been closed again before the fetch finished -
+        // don't resurrect it or write into a hidden list.
+        if (modal.style.display === 'none') return;
+
+        if (!rows.length) {
+            list.innerHTML = '<div class="lb-empty">No scores yet - be the first!</div>';
+            return;
+        }
+        list.innerHTML = rows.map((r, i) => `
+            <div class="lb-row">
+              <span class="lb-rank">${i + 1}</span>
+              <span class="lb-name">${escapeHtml(r.player_name)}</span>
+              <span class="lb-value">${escapeHtml(r.display_text)}</span>
+            </div>
+        `).join('');
+    }
+
+    function closeLeaderboard() {
+        const modal = document.getElementById('leaderboard-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
     function saveSettings() {
         try {
             localStorage.setItem(SETTINGS_KEY, JSON.stringify({
@@ -7414,6 +7920,7 @@
                 sfxLevel,
                 touchLayout,
                 botLevel: diffWheelValue,
+                botPlaystyle,
                 // Stored as the multiplier, not the list index, so reordering or
                 // inserting presets can never silently change someone's speed.
                 speedMult: gameSpeed,
@@ -7434,6 +7941,13 @@
     }
 
     function loadSettings() {
+        // Lives in its own localStorage key, independent of the settings
+        // blob below, so it has to be populated before the early return
+        // that fires when that blob doesn't exist yet (a player who has
+        // only ever set their name and nothing else).
+        const playerNameInput = document.getElementById('playerNameInput');
+        if (playerNameInput) playerNameInput.value = getPlayerName();
+
         let data;
         try { data = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) { data = null; }
         if (!data) return;
@@ -7477,6 +7991,7 @@
             let btn = document.getElementById('v2BetaToggleBtn');
             if (btn) { btn.innerText = v2Beta ? "ON" : "OFF"; btn.style.color = v2Beta ? "#5be8ff" : "#ff3366"; }
         }
+        updateThemeOptionsAvailability();
         // Old saves used a 0-3 step scale (0/33/66/100); anything that small
         // is clearly from that scale, not a real single-digit percentage
         // someone actually chose, so it gets converted up to the new 0-100
@@ -7484,6 +7999,10 @@
         if (typeof data.volLevel === 'number') volLevel = data.volLevel <= 3 ? Math.round(data.volLevel / 3 * 100) : data.volLevel;
         if (typeof data.sfxLevel === 'number') sfxLevel = data.sfxLevel <= 3 ? Math.round(data.sfxLevel / 3 * 100) : data.sfxLevel;
         if (typeof data.botLevel === 'number') diffWheelValue = Math.max(1, Math.min(11, data.botLevel));
+        if (data.botPlaystyle && ['balanced', 'survivor', 'tricky'].includes(data.botPlaystyle)) {
+            botPlaystyle = data.botPlaystyle;
+            document.querySelectorAll('.dw-style-btn').forEach(b => b.classList.toggle('active', b.dataset.style === botPlaystyle));
+        }
         if (data.touchLayout && data.touchLayout.pos) touchLayout = data.touchLayout;
 
         if (typeof data.speedMult === 'number') {
@@ -8038,7 +8557,26 @@
         btn.style.color = v2Beta ? "#5be8ff" : "#ff3366";
         if (!v2Beta) skipDisabledModeIndex(1);
         updateModeCards();
+        updateThemeOptionsAvailability();
         saveSettings();
+    }
+
+    // CLASSIC V2 is a V2 BETA-only theme (see drawThemeBlock) - hidden from
+    // the dropdown entirely while the setting is off, same idea as every
+    // other V2-gated feature. Falls back to plain CLASSIC if it was active
+    // when V2 BETA gets turned off, rather than leaving a hidden option
+    // silently still selected.
+    function updateThemeOptionsAvailability() {
+        const opt = document.getElementById('themeOpt-classicV2');
+        if (!opt) return;
+        opt.hidden = !v2Beta;
+        opt.disabled = !v2Beta;
+        const sel = document.getElementById('themeSelect');
+        if (!v2Beta && sel && sel.value === 'classicV2') {
+            sel.value = 'classic';
+            updateThemePreview('classic');
+            saveSettings();
+        }
     }
 
     // --- V2 BETA: title-drop splash intro ---
@@ -8162,6 +8700,11 @@
             }
         });
     }
+
+    // Modes that look visibly different with V2 BETA on (their own card gets
+    // a V2 badge for it - see updateModeCards). Boss is left out: it has no
+    // V1 look to badge against, it simply does not exist with V2 BETA off.
+    const V2_AFFECTED_MODES = ['survival', 'vs', 'botvsbot'];
 
     const modeDeck = [
         { mode: 'endless', label: 'Endless', tag: 'Arcade', color: '#aa00ff' },
@@ -8446,11 +8989,40 @@
           nextStageEl.style.display = 'block';
           void nextStageEl.offsetWidth;
           nextStageEl.classList.toggle('enter-left', entryDirection === 'left');
-          nextStageEl.classList.add('active');
+          nextStageEl.classList.add('active', 'entering');
           nextStageEl.style.pointerEvents = 'auto';
+          // .entering only drives the one-shot pop/slide-in flourish - it
+          // comes off the moment that finishes, so opacity/transform fall
+          // back to .active's own plain values (see the CSS comment on
+          // .menu-stage.active) and stay smoothly transitionable from then
+          // on, instead of staying animation-held indefinitely.
+          const stageEl = nextStageEl;
+          const clearEntering = () => stageEl.classList.remove('entering');
+          stageEl.addEventListener('animationend', clearEntering, { once: true });
+          menuStageTimers.push(window.setTimeout(clearEntering, 650));
         }
         activateMenuTitlePanels(stage);
-        if (nextStage === 'play') updateModeCards();
+        if (nextStage === 'play') {
+          updateModeCards();
+          // The deck's own staggered pop-in (see .mode-card.pop-in /
+          // .mode-card-inner.pop-in) - only on an actual navigation into the
+          // stage, not every time updateModeCards() happens to re-run (card
+          // selection, resize). Both the card itself and its inner text pop
+          // on the same beat per card.
+          const cards = document.querySelectorAll('#play-stage .mode-card');
+          const inners = document.querySelectorAll('#play-stage .mode-card-inner');
+          cards.forEach(el => el.classList.remove('pop-in'));
+          inners.forEach(el => el.classList.remove('pop-in'));
+          void document.body.offsetWidth;
+          cards.forEach((el, i) => {
+            el.style.animationDelay = (i * 0.035) + 's';
+            el.classList.add('pop-in');
+          });
+          inners.forEach((el, i) => {
+            el.style.animationDelay = (i * 0.035) + 's';
+            el.classList.add('pop-in');
+          });
+        }
         if (nextStage === 'music') updateMusicCarousel();
         updateMusicDuration();
 
@@ -8477,7 +9049,12 @@
 
       // The prism only visually travels when music/settings are involved, so plain/play swaps can open right away.
       const repositioning = previousStage === 'music' || previousStage === 'settings' || nextStage === 'music' || nextStage === 'settings';
-      const STAGE_CLOSE_MS = 140;
+      // Was 140 - shorter than .leaving's own 0.4s fade/slide/blur-out
+      // transition, so the outgoing panel got yanked to display:none well
+      // before it finished easing out, cutting the fade short into what
+      // read as a snap. Matches .leaving's transition duration (plus a
+      // small buffer) so it actually finishes.
+      const STAGE_CLOSE_MS = 420;
       const PRISM_CENTER_MS = 240;
 
       menuStageTimers.push(window.setTimeout(() => {
@@ -8524,7 +9101,7 @@
                         <div class="mode-name">${modeData.label.toUpperCase()}</div>
                         <div class="mode-tag">${modeData.tag.toUpperCase()}</div>
                     </div>
-                    ${modeData.mode === 'survival' ? '<div class="mode-v2-badge" id="survival-v2-badge">V2</div>' : ''}
+                    ${V2_AFFECTED_MODES.includes(modeData.mode) ? `<div class="mode-v2-badge" id="${modeData.mode}-v2-badge">V2</div>` : ''}
                 </div>
             `).join('');
 
@@ -8601,10 +9178,11 @@
             if (nameEl) nameEl.style.textShadow = isSelected ? `0 0 14px ${modeData.color}, 0 0 30px ${modeData.color}99` : '0 0 10px rgba(255,255,255,0.4)';
             if (tagEl) tagEl.style.color = isSelected ? modeData.color : 'rgba(255,255,255,0.9)';
 
-            // Survival plays as V2 Icy Mountain whenever V2 BETA is on - a
-            // badge on its own card says so up front, instead of only
-            // finding out once the climb/rocket backdrop appears in-game.
-            if (modeData.mode === 'survival') {
+            // Survival, VS and BOT VS BOT all look visibly different with V2
+            // BETA on (Icy Mountain / the Colosseum) - a badge on the card
+            // says so up front, instead of only finding out once the actual
+            // backdrop appears in-game.
+            if (V2_AFFECTED_MODES.includes(modeData.mode)) {
                 const badge = card.querySelector('.mode-v2-badge');
                 if (badge) badge.style.display = v2Beta ? 'flex' : 'none';
             }
@@ -8714,6 +9292,23 @@
       'RUTHLESS', 'SAVAGE', 'MERCILESS', 'PERFECT', 'INFERNO'
     ];
     let diffWheelValue = 5;          // 1..11
+    // BOT PLAYSTYLE - what the bot is actually trying to do, independent of
+    // how fast/sharp it plays (that's still diffWheelValue/botDifficulty).
+    //   balanced  - the original behaviour, completely unchanged.
+    //   survivor  - heavily safety-weighted: clears every line it can the
+    //               instant it can, holes/height/bumpiness penalised harder,
+    //               never sits on a clear waiting for something better.
+    //   tricky    - rewards keeping an active B2B chain going (and punishes
+    //               breaking one with a throwaway clear unless the board is
+    //               actually getting dangerous), and rewards preserving/
+    //               building a T-spin pocket (see hasTSpinPocket) while the
+    //               board is still safe to do so.
+    let botPlaystyle = 'balanced';
+    function setBotPlaystyle(style) {
+        botPlaystyle = style;
+        document.querySelectorAll('.dw-style-btn').forEach(b => b.classList.toggle('active', b.dataset.style === style));
+        saveSettings();
+    }
     let diffWheelBuilt = false;
 
     function buildDiffWheel() {
@@ -9279,6 +9874,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         loadSettings();
+        updateThemeOptionsAvailability();
         // Runs even with nothing saved yet - without this the 4 sliders sit
         // at the browser's own default (the midpoint of min/max) instead of
         // reflecting the real defaults (dasMs/arrMs/sdfValue/dcdMs above).
@@ -9748,6 +10344,11 @@
 
     const THEMES = {
       classic: { 'I': '#00ffff', 'O': '#ffff00', 'T': '#aa00ff', 'S': '#00ff00', 'Z': '#ff0000', 'J': '#0000ff', 'L': '#ffaa00', 'G': '#555566' },
+      // "Monnetic Tech" from the reference palette chart - bright saturated
+      // cyan/blue/orange/yellow/green/purple/red, matched to that sheet
+      // rather than to classic's own exact hues. The look (see
+      // drawThemeBlock) is that sheet's glossy bordered-chiclet style too.
+      classicV2: { 'I': '#29d6e8', 'O': '#ffd43b', 'T': '#b16cf0', 'S': '#4ade80', 'Z': '#ef4444', 'J': '#2f6fed', 'L': '#ff9233', 'G': '#4a4a5e' },
       cyberpunk: { 'I': '#00ffff', 'O': '#ffff00', 'T': '#ff00ff', 'S': '#00ff00', 'Z': '#ff3366', 'J': '#0066ff', 'L': '#ff6600', 'G': '#1a1a2e' },
       neon: { 'I': '#00ffff', 'O': '#ffff00', 'T': '#aa00ff', 'S': '#00ff00', 'Z': '#ff0000', 'J': '#0000ff', 'L': '#ffaa00', 'G': '#555566' },
       slime: { 'I': '#00ffcc', 'O': '#ccff00', 'T': '#b000ff', 'S': '#00ff33', 'Z': '#ff0066', 'J': '#0066ff', 'L': '#ff9900', 'G': '#223322' },
@@ -10425,13 +11026,20 @@
           if (isNewBest) {
               personalBests[bestKey] = { value: result.value, text: result.text };
               saveBests();
+              // Only a genuine personal best goes to the global board - every
+              // run would flood the table with nothing worth seeing, and a
+              // new local best is already the exact moment a player would
+              // want to see how it stacks up against everyone else anyway.
+              if (!p1.isBot) submitScoreToLeaderboard(gameMode, SPEED_PRESETS[speedIdx].label, result.value, result.text);
           }
           document.getElementById('go-best-label').innerText = isNewBest ? result.text : prevBest.text;
           bestRow.style.display = 'flex';
           newBestBadge.style.display = isNewBest ? 'block' : 'none';
+          document.getElementById('go-leaderboard-btn').style.display = p1.isBot ? 'none' : 'inline-block';
       } else {
           bestRow.style.display = 'none';
           newBestBadge.style.display = 'none';
+          document.getElementById('go-leaderboard-btn').style.display = 'none';
       }
 
       // Icy Mountain (V2 BETA Survival) tracks a second personal best
@@ -10961,6 +11569,84 @@
     // they trail properly instead of being re-randomised into static each frame.
     const hearthEmbers = Array.from({length: 26}, () => ({ life: 0 }));
     let survivalSteam = 0;
+
+    // ================================================================
+    // VS/BOTVSBOT V2 (BETA) - THE COLOSSEUM
+    // A packed stone arena wrapped around the pit the boards sit in, seen
+    // from a spectator's own seat rather than a detached camera - everything
+    // below is built once (the crowd's seating positions, the torches) and
+    // only ever re-coloured/re-posed per frame, so a packed house of dots
+    // doesn't mean re-rolling hundreds of randoms every tick.
+    // ================================================================
+    const COLOSSEUM_TIERS = 6;
+    // Fractional (0..1) positions so the whole arena just stretches to fit
+    // bgW/bgH on resize instead of being generated at a fixed resolution.
+    const colosseumCrowd = Array.from({ length: COLOSSEUM_TIERS }, (_, tier) =>
+        Array.from({ length: 64 }, () => ({
+            x: Math.random(),
+            row: Math.random(),
+            colorIdx: Math.floor(Math.random() * 6),
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.6 + Math.random() * 0.5,
+            // A handful of seats sit empty - a packed-but-not-perfectly-full
+            // crowd reads as a real one, not a uniform wallpaper pattern.
+            empty: Math.random() < 0.08
+        }))
+    );
+    const COLOSSEUM_CROWD_COLORS = ['#c9643a', '#8a4a9e', '#3a6ea5', '#b5a33a', '#4a9e6e', '#9e4a4a'];
+    // Torches mounted along the rim; each keeps its own small ember pool so
+    // none of them fight another torch (or the Survival fireplace) for particles.
+    const colosseumTorches = [0.08, 0.26, 0.74, 0.92].map(x => ({
+        x, pool: Array.from({ length: 10 }, () => ({ life: 0 }))
+    }));
+    const colosseumBanners = [0.14, 0.34, 0.66, 0.86].map((x, i) => ({ x, colorIdx: i % 2 }));
+    const colosseumDust = Array.from({ length: 50 }, () => ({ x: Math.random(), y: Math.random(), vy: 0.1 + Math.random() * 0.2, size: Math.random() * 2 + 0.6, phase: Math.random() * Math.PI * 2 }));
+    // A handful of embers drifting up off the torches, very slight - the
+    // arena needed SOME ambient motion beyond the crowd's own idle bob.
+    const colosseumEmbers = Array.from({ length: 22 }, () => ({ x: Math.random(), y: Math.random(), vy: 0.05 + Math.random() * 0.09, size: Math.random() * 1.6 + 0.6, phase: Math.random() * Math.PI * 2, flicker: Math.random() * Math.PI * 2 }));
+    // Small rubble/debris sliding past along the very base of the wall - a
+    // slow conveyor rather than anything standing still, so the bottom edge
+    // of the frame reads as alive even when nothing else is happening.
+    const colosseumTrackDebris = Array.from({ length: 16 }, () => ({
+        x: Math.random(),
+        kind: Math.floor(Math.random() * 3),
+        scale: 0.7 + Math.random() * 0.8,
+        rot: Math.random() * Math.PI * 2
+    }));
+    let colosseumTrackScroll = 0;
+    // Set by triggerColosseumCheer() whenever real damage actually lands (see
+    // spawnProjectiles) - decays back to 0 on its own, every frame, so the
+    // crowd's reaction reads as a reaction to something instead of ambient
+    // idle motion. Scoped to whichever half of the arena the HIT landed on
+    // (the target's side), not the whole arena at once.
+    let colosseumCheer = 0;
+    let colosseumCheerSide = 'right';
+    // Real particles, not a colour wash - a confetti/spark burst thrown from
+    // that side's crowd, each with its own short lifespan.
+    const colosseumConfetti = [];
+
+    function triggerColosseumCheer(side) {
+        colosseumCheer = 1;
+        colosseumCheerSide = side === 'left' ? 'left' : 'right';
+        const minX = colosseumCheerSide === 'left' ? 0.02 : 0.55;
+        const maxX = colosseumCheerSide === 'left' ? 0.45 : 0.98;
+        // A handful of sparks in one rainbow sweep (same hue-step idea as the
+        // paint-stroke attack's own trail), not a big confetti cannon - this
+        // is meant to read as a quick flicker of reaction, not the main event.
+        const hueBase = Math.random() * 360;
+        for (let i = 0; i < 9; i++) {
+            colosseumConfetti.push({
+                x: minX + Math.random() * (maxX - minX),
+                y: 0.18 + Math.random() * 0.3,
+                vx: (Math.random() - 0.5) * 0.003,
+                vy: -0.009 - Math.random() * 0.006,
+                life: 1,
+                decay: 0.022 + Math.random() * 0.012,
+                size: 1.6 + Math.random() * 1.6,
+                color: `hsl(${(hueBase + i * 18) % 360}, 90%, 62%)`
+            });
+        }
+    }
 
     // ================================================================
     // SURVIVAL V2 (BETA) - ICY MOUNTAIN
@@ -11710,10 +12396,442 @@
         bgCtx.fillRect(0, 0, bgW, bgH);
     }
 
+    // The V2 Colosseum backdrop for VS/botvsbot (including Spectate, which is
+    // just botvsbot with no local player): a packed stone arena wrapped
+    // around the pit, drawn from a fixed spectator's seat rather than a
+    // detached camera - a gentle handheld sway on the whole scene, not a
+    // free-floating one. triggerColosseumCheer() (called from spawnProjectiles,
+    // i.e. real damage actually landing) is the only thing that makes the
+    // crowd do anything beyond idle motion - everything else here is ambience.
+    function renderVsColosseum(dt) {
+        const step = dt / 16;
+        if (colosseumCheer > 0) colosseumCheer = Math.max(0, colosseumCheer - 0.016 * step);
+
+        // A faint handheld sway on the whole arena - this is someone's own
+        // seat, not a crane shot.
+        const swayX = Math.sin(bgTime * 0.00022) * 5;
+        const swayY = Math.sin(bgTime * 0.00035 + 1.4) * 3;
+        bgCtx.save();
+        bgCtx.translate(swayX, swayY);
+
+        const topRimY = bgH * 0.04;
+        const floorY = bgH * 0.60;
+
+        // --- dusk sky over the open top of the arena ---
+        const sky = bgCtx.createLinearGradient(0, 0, 0, topRimY + bgH * 0.1);
+        sky.addColorStop(0, '#1c1430');
+        sky.addColorStop(0.55, '#4a2a4a');
+        sky.addColorStop(1, '#c6703f');
+        bgCtx.fillStyle = sky;
+        bgCtx.fillRect(-20, -20, bgW + 40, bgH + 40);
+
+        // Low sun hanging just above the far rim.
+        const sunY = topRimY * 0.6;
+        const sunGlow = bgCtx.createRadialGradient(bgW / 2, sunY, 0, bgW / 2, sunY, bgW * 0.22);
+        sunGlow.addColorStop(0, 'rgba(255, 200, 120, 0.9)');
+        sunGlow.addColorStop(0.4, 'rgba(255, 150, 80, 0.35)');
+        sunGlow.addColorStop(1, 'rgba(255, 150, 80, 0)');
+        bgCtx.fillStyle = sunGlow;
+        bgCtx.fillRect(0, 0, bgW, topRimY + bgH * 0.1);
+
+        // A handful of soft god-rays fanning down from the sun through the
+        // open top, for real atmosphere instead of a flat gradient sky.
+        bgCtx.save();
+        bgCtx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 6; i++) {
+            const ang = -0.9 + i * 0.36 + Math.sin(bgTime * 0.0003 + i) * 0.03;
+            bgCtx.save();
+            bgCtx.translate(bgW / 2, sunY);
+            bgCtx.rotate(ang);
+            const rayGrad = bgCtx.createLinearGradient(0, 0, 0, bgH);
+            rayGrad.addColorStop(0, 'rgba(255, 215, 150, 0.10)');
+            rayGrad.addColorStop(1, 'rgba(255, 215, 150, 0)');
+            bgCtx.fillStyle = rayGrad;
+            bgCtx.fillRect(-18, 0, 36, bgH);
+            bgCtx.restore();
+        }
+        bgCtx.restore();
+
+        // A few distant birds, just drifting V-strokes.
+        bgCtx.strokeStyle = 'rgba(20,10,20,0.5)';
+        bgCtx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+            const bx = ((bgTime * 0.01 + i * 240) % (bgW + 200)) - 100;
+            const by = topRimY * 0.3 + Math.sin(bgTime * 0.0012 + i) * 10 + i * 14;
+            bgCtx.beginPath();
+            bgCtx.moveTo(bx - 7, by);
+            bgCtx.quadraticCurveTo(bx - 2, by - 5, bx, by);
+            bgCtx.quadraticCurveTo(bx + 2, by - 5, bx + 7, by);
+            bgCtx.stroke();
+        }
+
+        // --- the far rim: stone crenellations against the open sky, with a
+        // small pennant snapping off every few of them ---
+        bgCtx.fillStyle = '#2a2230';
+        const merlonW = bgW / 26;
+        for (let i = 0; i < 26; i++) {
+            bgCtx.fillRect(i * merlonW, topRimY - 14, merlonW * 0.6, 14);
+        }
+        bgCtx.fillRect(0, topRimY, bgW, 4);
+
+        for (let i = 2; i < 26; i += 5) {
+            const px = i * merlonW + merlonW * 0.3;
+            const poleTop = topRimY - 14 - 16;
+            bgCtx.strokeStyle = '#1a1620';
+            bgCtx.lineWidth = 1.5;
+            bgCtx.beginPath();
+            bgCtx.moveTo(px, topRimY - 14);
+            bgCtx.lineTo(px, poleTop);
+            bgCtx.stroke();
+            const flutter = Math.sin(bgTime * 0.004 + i) * 4;
+            bgCtx.fillStyle = (i % 10 === 2) ? '#5be8ff' : '#ff3366';
+            bgCtx.beginPath();
+            bgCtx.moveTo(px, poleTop);
+            bgCtx.lineTo(px + 14 + flutter, poleTop + 4);
+            bgCtx.lineTo(px, poleTop + 9);
+            bgCtx.closePath();
+            bgCtx.fill();
+        }
+
+        // --- seating tiers, far (small/hazy) to near (big/torch-warm) ---
+        // Reaction to a hit is scoped to whichever half it actually landed
+        // on (colosseumCheerSide), never the whole arena - see triggerColosseumCheer.
+        const cheerGlow = colosseumCheer;
+        for (let i = 0; i < COLOSSEUM_TIERS; i++) {
+            const t = i / (COLOSSEUM_TIERS - 1);
+            const bandTop = topRimY + (floorY - topRimY) * Math.pow(i / COLOSSEUM_TIERS, 1.25);
+            const bandBottom = topRimY + (floorY - topRimY) * Math.pow((i + 1) / COLOSSEUM_TIERS, 1.25);
+            const bandH = bandBottom - bandTop;
+
+            // Stone grows warmer and lighter the closer (lower) the tier is -
+            // atmospheric haze on the far ones, torchlight on the near ones.
+            const stoneR = Math.round(46 + t * 70);
+            const stoneG = Math.round(38 + t * 48);
+            const stoneB = Math.round(52 + t * 38);
+            bgCtx.fillStyle = `rgb(${stoneR},${stoneG},${stoneB})`;
+            bgCtx.fillRect(0, bandTop, bgW, bandH);
+
+            // Depth shading within the tier itself: lit top edge, shadow pooling low.
+            const shade = bgCtx.createLinearGradient(0, bandTop, 0, bandBottom);
+            shade.addColorStop(0, 'rgba(255,220,180,0.10)');
+            shade.addColorStop(0.5, 'rgba(0,0,0,0)');
+            shade.addColorStop(1, 'rgba(0,0,0,0.28)');
+            bgCtx.fillStyle = shade;
+            bgCtx.fillRect(0, bandTop, bgW, bandH);
+
+            // Weathering: a few vertical rain-streak cracks per tier, fixed
+            // (seeded off the tier/arch index, not re-randomised every frame).
+            bgCtx.strokeStyle = 'rgba(0,0,0,0.18)';
+            bgCtx.lineWidth = 1;
+            for (let c = 0; c < 4; c++) {
+                const cx = ((i * 71 + c * 233) % 97) / 97 * bgW;
+                bgCtx.beginPath();
+                bgCtx.moveTo(cx, bandTop);
+                bgCtx.lineTo(cx + 6, bandBottom);
+                bgCtx.stroke();
+            }
+
+            // Arch columns dividing the tier into seating blocks - more and
+            // tighter the further away (smaller scale), fewer and wider up close.
+            const archCount = Math.round(9 + t * 10);
+            const archW = bgW / archCount;
+            bgCtx.fillStyle = `rgba(10,6,12,${0.22 + t * 0.1})`;
+            for (let a = 0; a < archCount; a++) {
+                bgCtx.fillRect(a * archW, bandTop, archW * 0.06, bandH);
+            }
+
+            // A lit stone lip separating this tier from the one below -
+            // gives each band a real edge instead of just a flat colour change.
+            bgCtx.fillStyle = 'rgba(255,225,190,0.16)';
+            bgCtx.fillRect(0, bandBottom - 2, bgW, 2);
+            bgCtx.fillStyle = 'rgba(0,0,0,0.25)';
+            bgCtx.fillRect(0, bandBottom, bgW, 3);
+
+            // The crowd itself - packed little bodies (a torso + a head once
+            // they're big enough to read as one), idly bobbing. A hit's
+            // reaction - brighten, pop up, throw an arm - only plays out on
+            // whichever half of the crowd is actually on the side that got hit.
+            const dotR = 1.3 + t * 2.4;
+            colosseumCrowd[i].forEach(dot => {
+                if (dot.empty) return;
+                const px = dot.x * bgW;
+                const onCheerSide = (colosseumCheerSide === 'left') === (dot.x < 0.5);
+                const localCheer = onCheerSide ? cheerGlow : 0;
+                const bob = Math.sin(bgTime * 0.0022 * dot.speed + dot.phase) * 1.4;
+                const lift = localCheer * (5 + t * 9);
+                const py = bandTop + dot.row * bandH - bob - lift;
+
+                const col = localCheer > 0.05
+                    ? `hsl(${(dot.colorIdx * 55 + bgTime * 0.05) % 360}, 85%, ${60 + localCheer * 15}%)`
+                    : COLOSSEUM_CROWD_COLORS[dot.colorIdx];
+                bgCtx.globalAlpha = 0.55 + t * 0.4;
+                bgCtx.fillStyle = col;
+                bgCtx.beginPath();
+                bgCtx.arc(px, py, dotR, 0, Math.PI * 2);
+                bgCtx.fill();
+                // Torso, only once the tier is close enough for it to read as
+                // more than a single pixel.
+                if (dotR > 2.2) {
+                    bgCtx.fillRect(px - dotR * 0.55, py + dotR * 0.3, dotR * 1.1, dotR * 1.3);
+                }
+
+                if (localCheer > 0.2) {
+                    bgCtx.strokeStyle = col;
+                    bgCtx.lineWidth = Math.max(1, dotR * 0.5);
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(px, py - dotR * 0.4);
+                    bgCtx.lineTo(px + dotR * 0.9, py - dotR * (1.6 + localCheer * 1.8));
+                    bgCtx.stroke();
+                }
+                bgCtx.globalAlpha = 1;
+            });
+        }
+
+        // --- banners hanging from the rim, swaying gently, in Tetrainer's
+        // own cyan/magenta rather than anything lifted from a reference image ---
+        colosseumBanners.forEach((b, i) => {
+            const bx = b.x * bgW;
+            const sway = Math.sin(bgTime * 0.0009 + i * 1.7) * 6;
+            const bw = bgW * 0.028, bh = (floorY - topRimY) * 0.5;
+            const col = b.colorIdx === 0 ? '#5be8ff' : '#ff3366';
+            const grad = bgCtx.createLinearGradient(bx, topRimY, bx, topRimY + bh);
+            grad.addColorStop(0, col);
+            grad.addColorStop(1, 'rgba(0,0,0,0.35)');
+            bgCtx.save();
+            bgCtx.globalAlpha = 0.8;
+            bgCtx.translate(bx, topRimY);
+            bgCtx.transform(1, 0, sway / bh, 1, 0, 0);
+            bgCtx.fillStyle = grad;
+            bgCtx.fillRect(-bw / 2, 0, bw, bh);
+            bgCtx.fillStyle = col;
+            for (let f = 0; f < 3; f++) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(-bw / 2 + f * (bw / 3), bh);
+                bgCtx.lineTo(-bw / 2 + (f + 0.5) * (bw / 3), bh + 10);
+                bgCtx.lineTo(-bw / 2 + (f + 1) * (bw / 3), bh);
+                bgCtx.fill();
+            }
+            bgCtx.restore();
+        });
+
+        // --- sand floor of the pit, warmly lit from the torches flanking it ---
+        const floorGrad = bgCtx.createLinearGradient(0, floorY, 0, bgH);
+        floorGrad.addColorStop(0, '#8a6a46');
+        floorGrad.addColorStop(1, '#4a3626');
+        bgCtx.fillStyle = floorGrad;
+        bgCtx.fillRect(0, floorY, bgW, bgH - floorY);
+
+        const pitGlow = bgCtx.createRadialGradient(bgW / 2, floorY + 30, 10, bgW / 2, floorY + 30, bgW * 0.5);
+        pitGlow.addColorStop(0, 'rgba(255, 190, 120, 0.22)');
+        pitGlow.addColorStop(1, 'rgba(255, 190, 120, 0)');
+        bgCtx.fillStyle = pitGlow;
+        bgCtx.fillRect(0, floorY, bgW, bgH - floorY);
+
+        // Short raked-sand streaks instead of full arcs (those read as a
+        // target/bullseye painted on the floor, not texture) - scattered,
+        // slightly tilted dashes, the way an actual rake drags through sand.
+        bgCtx.strokeStyle = 'rgba(0,0,0,0.14)';
+        bgCtx.lineWidth = 2;
+        bgCtx.lineCap = 'round';
+        for (let i = 0; i < 90; i++) {
+            const fx = ((i * 53) % 101) / 101 * bgW;
+            const fy = floorY + ((i * 31) % 97) / 97 * (bgH - floorY);
+            const tilt = Math.sin(i * 1.7) * 6;
+            bgCtx.beginPath();
+            bgCtx.moveTo(fx - 9, fy);
+            bgCtx.lineTo(fx + 9, fy + tilt);
+            bgCtx.stroke();
+        }
+        // Fine sand grain speckle on top, for close-up texture.
+        bgCtx.fillStyle = 'rgba(0,0,0,0.10)';
+        for (let i = 0; i < 140; i++) {
+            const fx = ((i * 71) % 131) / 131 * bgW;
+            const fy = floorY + ((i * 43) % 89) / 89 * (bgH - floorY);
+            bgCtx.fillRect(fx, fy, 1.5, 1.5);
+        }
+
+        // --- front balustrade - the low wall right in front of this seat,
+        // with torches mounted on it flanking the pit. ---
+        const wallY = bgH * 0.93;
+        bgCtx.fillStyle = '#3a2e30';
+        bgCtx.fillRect(0, wallY, bgW, bgH - wallY);
+        bgCtx.fillStyle = '#4a3c3e';
+        const crenW = bgW / 34;
+        for (let i = 0; i < 34; i++) bgCtx.fillRect(i * crenW, wallY - 10, crenW * 0.65, 10);
+
+        // Mortared stone block texture on the wall face itself, offset every
+        // other row like real brickwork instead of a flat painted slab.
+        bgCtx.strokeStyle = 'rgba(0,0,0,0.25)';
+        bgCtx.lineWidth = 1;
+        const brickW = 30, brickH = 14;
+        for (let row = 0, ry = wallY; ry < bgH; row++, ry += brickH) {
+            const off = (row % 2) * (brickW / 2);
+            bgCtx.beginPath();
+            bgCtx.moveTo(0, ry);
+            bgCtx.lineTo(bgW, ry);
+            bgCtx.stroke();
+            for (let bx = -brickW + off; bx < bgW; bx += brickW) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(bx, ry);
+                bgCtx.lineTo(bx, Math.min(bgH, ry + brickH));
+                bgCtx.stroke();
+            }
+        }
+
+        // A carved medallion centred on the wall - concentric rings and a
+        // simple four-block emblem, lit from the torches on either side of it.
+        const medCx = bgW / 2, medCy = wallY + (bgH - wallY) / 2;
+        const medR = Math.min(26, (bgH - wallY) * 0.4);
+        bgCtx.save();
+        bgCtx.strokeStyle = 'rgba(255,210,150,0.35)';
+        bgCtx.lineWidth = 2;
+        bgCtx.beginPath(); bgCtx.arc(medCx, medCy, medR, 0, Math.PI * 2); bgCtx.stroke();
+        bgCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+        bgCtx.beginPath(); bgCtx.arc(medCx, medCy, medR * 0.72, 0, Math.PI * 2); bgCtx.stroke();
+        bgCtx.fillStyle = 'rgba(91,232,255,0.5)';
+        bgCtx.fillRect(medCx - medR * 0.32, medCy - medR * 0.32, medR * 0.3, medR * 0.3);
+        bgCtx.fillRect(medCx + medR * 0.02, medCy - medR * 0.32, medR * 0.3, medR * 0.3);
+        bgCtx.fillStyle = 'rgba(255,51,102,0.5)';
+        bgCtx.fillRect(medCx - medR * 0.32, medCy + medR * 0.02, medR * 0.3, medR * 0.3);
+        bgCtx.fillRect(medCx + medR * 0.02, medCy + medR * 0.02, medR * 0.3, medR * 0.3);
+        bgCtx.restore();
+
+        colosseumTorches.forEach(torch => {
+            const tx = torch.x * bgW;
+            const onCheerSide = (colosseumCheerSide === 'left') === (torch.x < 0.5);
+            bgCtx.fillStyle = '#2a2224';
+            bgCtx.fillRect(tx - 4, wallY - 28, 8, 28);
+            const breath = 0.8 + Math.sin(bgTime * 0.009 + torch.x * 20) * 0.15 + (onCheerSide ? cheerGlow * 0.25 : 0);
+            drawHearthFire(bgCtx, tx, wallY - 28, 13, 44, bgTime * 0.004, breath);
+            drawHearthEmbers(bgCtx, tx, wallY - 34, 12, dt, torch.pool);
+        });
+
+        // --- a stone statue guarding each far edge, for scale and weight at
+        // the frame's own corners - a plinth, a robed body, a round head. ---
+        [0, 1].forEach(side => {
+            const sx = side === 0 ? bgW * 0.035 : bgW * 0.965;
+            const dir = side === 0 ? 1 : -1;
+            const baseY = wallY;
+            bgCtx.fillStyle = '#242024';
+            bgCtx.fillRect(sx - 20, baseY - 12, 40, 12);
+            bgCtx.fillStyle = '#322c32';
+            bgCtx.beginPath();
+            bgCtx.moveTo(sx - 15, baseY - 12);
+            bgCtx.lineTo(sx + 15, baseY - 12);
+            bgCtx.lineTo(sx + 10, baseY - 95);
+            bgCtx.lineTo(sx - 10, baseY - 95);
+            bgCtx.closePath();
+            bgCtx.fill();
+            bgCtx.fillStyle = '#3a333a';
+            bgCtx.beginPath();
+            bgCtx.arc(sx, baseY - 108, 13, 0, Math.PI * 2);
+            bgCtx.fill();
+            // A raised arm holding a torch-less standard, just for silhouette variety.
+            bgCtx.strokeStyle = '#322c32';
+            bgCtx.lineWidth = 6;
+            bgCtx.beginPath();
+            bgCtx.moveTo(sx + dir * 9, baseY - 85);
+            bgCtx.lineTo(sx + dir * 22, baseY - 130);
+            bgCtx.stroke();
+        });
+
+        // --- drifting dust/ash, catching the torchlight ---
+        bgCtx.globalCompositeOperation = 'lighter';
+        colosseumDust.forEach(d => {
+            d.y -= d.vy * 0.001 * step;
+            if (d.y < -0.05) d.y = 1.05;
+            const dx = d.x * bgW + Math.sin(bgTime * 0.0006 + d.phase) * 14;
+            const dy = d.y * bgH;
+            bgCtx.globalAlpha = 0.18;
+            bgCtx.fillStyle = '#ffd9a0';
+            bgCtx.beginPath();
+            bgCtx.arc(dx, dy, d.size, 0, Math.PI * 2);
+            bgCtx.fill();
+        });
+        bgCtx.globalAlpha = 1;
+
+        // --- embers drifting up off the torches, very faint - slow, warm,
+        // barely-there motion so the arena never sits completely still. ---
+        colosseumEmbers.forEach(e => {
+            e.y -= e.vy * 0.001 * step;
+            e.flicker += 0.03 * step;
+            if (e.y < -0.05) { e.y = 1.02; e.x = Math.random(); }
+            const ex = e.x * bgW + Math.sin(bgTime * 0.0009 + e.phase) * 10;
+            const ey = e.y * bgH;
+            bgCtx.globalAlpha = 0.16 + Math.sin(e.flicker) * 0.08;
+            bgCtx.fillStyle = '#ffa033';
+            bgCtx.beginPath();
+            bgCtx.arc(ex, ey, e.size, 0, Math.PI * 2);
+            bgCtx.fill();
+        });
+        bgCtx.globalAlpha = 1;
+        bgCtx.globalCompositeOperation = 'source-over';
+
+        // --- a slow conveyor of small rubble sliding along the base of the
+        // wall - the "track" of the arena's own floor-line, so the bottom
+        // edge of the frame always has a little life to it. ---
+        colosseumTrackScroll = (colosseumTrackScroll + 0.012 * step) % 1;
+        const trackY = bgH - 7;
+        colosseumTrackDebris.forEach(d => {
+            const dx = ((d.x + colosseumTrackScroll) % 1) * (bgW + 60) - 30;
+            bgCtx.save();
+            bgCtx.translate(dx, trackY);
+            bgCtx.rotate(d.rot);
+            bgCtx.scale(d.scale, d.scale);
+            bgCtx.fillStyle = 'rgba(0,0,0,0.4)';
+            if (d.kind === 0) {
+                bgCtx.beginPath();
+                bgCtx.ellipse(0, 2, 7, 3, 0, 0, Math.PI * 2);
+                bgCtx.fill();
+            } else if (d.kind === 1) {
+                bgCtx.fillRect(-5, -2, 10, 4);
+            } else {
+                bgCtx.beginPath();
+                bgCtx.moveTo(-6, 2); bgCtx.lineTo(0, -4); bgCtx.lineTo(6, 2);
+                bgCtx.closePath();
+                bgCtx.fill();
+            }
+            bgCtx.restore();
+        });
+
+        // --- the actual reaction to a hit: a real confetti/spark burst
+        // thrown from the crowd on whichever side got hit, not a colour
+        // wash over the whole screen (see triggerColosseumCheer). ---
+        for (let i = colosseumConfetti.length - 1; i >= 0; i--) {
+            const c = colosseumConfetti[i];
+            c.x += c.vx * step;
+            c.y += c.vy * step;
+            c.vy += 0.00035 * step;
+            c.life -= c.decay * step;
+            if (c.life <= 0) { colosseumConfetti.splice(i, 1); continue; }
+            bgCtx.globalAlpha = Math.max(0, c.life);
+            bgCtx.fillStyle = c.color;
+            bgCtx.fillRect(c.x * bgW - c.size / 2, c.y * bgH - c.size / 2, c.size, c.size);
+        }
+        bgCtx.globalAlpha = 1;
+        bgCtx.globalCompositeOperation = 'source-over';
+
+        bgCtx.restore();
+
+        // Vignette, drawn outside the sway transform so the darkened corners
+        // stay pinned to the screen edge rather than swaying with the scene.
+        const vignette = bgCtx.createRadialGradient(bgW / 2, bgH * 0.45, bgH * 0.2, bgW / 2, bgH * 0.45, bgH * 0.9);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
+        bgCtx.fillStyle = vignette;
+        bgCtx.fillRect(0, 0, bgW, bgH);
+    }
+
     // The V2 Icy Mountain backdrop: a vertical ice shaft looking straight up,
     // with the board itself framed as a rocket climbing it. Pace, snowfall
     // and wind are all driven by the same altitude/climb-speed state above.
     function renderSurvivalIceMountain(dt) {
+        // Belt-and-suspenders: the only call site already checks
+        // bgMode === 'survival', but the rocket (including its K.O. fizzle)
+        // must never render outside Survival under any circumstance - this
+        // stops it cold even if bgMode is ever stale for a frame during a
+        // mode switch, rather than relying on one single gate.
+        if (gameMode !== 'survival') return;
         const step = dt / 16;
         const p0 = (typeof players !== 'undefined' && players[0]) ? players[0] : null;
         // Was unconditional - the climb, the scroll and Santa's threshold
@@ -13541,6 +14659,9 @@
             }
         }
         else if (bgMode === 'vs' || bgMode === 'botvsbot') {
+          if (v2Beta) {
+            renderVsColosseum(dt);
+          } else {
             bgCtx.fillStyle = currentTheme === 'cyberpunk' ? '#02020a' : '#0a0510';
             bgCtx.fillRect(0, 0, bgW, bgH);
 
@@ -13629,6 +14750,7 @@
                 bgCtx.fillRect(car.x, cy, 18 * car.z, 4 * car.z);
                 bgCtx.shadowBlur = 0;
             });
+          }
         }
         else if (bgMode === 'endurance') {
             let waterY = bgH * 0.5; // Horizon line
@@ -14705,8 +15827,27 @@
           else playClick('triangle', 1000, 300, 0.02, 0.08);
       },
       spinClick: (bot) => { if(!bot) playKeyTwist(); },
-      // The reward chord, played when a spin actually clears lines.
-      spin: (bot) => { let m=bot?0.8:1; playMellow(293.66*m, 1.0); playMellow(349.23*m, 1.0); playMellow(440.00*m, 1.0); },
+      // The reward chord, played when a spin actually clears lines. The triad
+      // itself stays the same everywhere (it's the actual "you did it" payoff),
+      // but every other piece sound in the game is themed and this one
+      // wasn't - it always fell back to the same plain chord regardless of
+      // theme. Layering a themed accent on top, the same way landTouch/lock
+      // do, gives it the theme's own voice without losing the reward feel.
+      spin: (bot) => {
+          let m=bot?0.8:1; playMellow(293.66*m, 1.0); playMellow(349.23*m, 1.0); playMellow(440.00*m, 1.0);
+          if (bot) return;
+          if (currentTheme === 'slime') playClick('triangle', 220, 120, 0.1, 0.12);
+          else if (currentTheme === 'water') playClick('sine', 300, 150, 0.12, 0.1);
+          else if (currentTheme === 'gems') playClick('triangle', 2400, 1200, 0.08, 0.1);
+          else if (currentTheme === 'glass') playClick('sine', 3500, 3000, 0.06, 0.08);
+          else if (currentTheme === 'neon') playClick('sawtooth', 500, 350, 0.08, 0.1);
+          else if (currentTheme === 'monochrome') playClick('square', 300, 250, 0.08, 0.08);
+          else if (currentTheme === 'wood') playClick('triangle', 350, 200, 0.08, 0.1);
+          else if (currentTheme === 'cyberpunk') { playClick('square', 900, 300, 0.07, 0.08); playClick('sine', 2200, 2200, 0.03, 0.04); }
+          else if (currentTheme === 'paint') { playClick('sine', 500, 250, 0.1, 0.1); playNoise(0.04, 0.05); }
+          else if (currentTheme === 'clouds') playClick('sine', 700, 400, 0.1, 0.1);
+          else if (currentTheme === 'steampunk') { playClick('square', 250, 150, 0.08, 0.08); playNoise(0.05, 0.06); }
+      },
       hardDrop: (bot) => {
           if(bot) return;
           if (currentTheme === 'paint') playClick('square', 150, 50, 0.15, 0.1);
@@ -14731,7 +15872,40 @@
           else if (currentTheme === 'neon') playClick('sawtooth', 200, 200, 0.05, 0.08);
           else if (currentTheme === 'monochrome') playClick('square', 120, 120, 0.05, 0.08);
           else if (currentTheme === 'wood') playClick('triangle', 250, 150, 0.05, 0.1);
+          // The four themes below used to fall through to the plain default
+          // click despite each already having its own distinct rotate/hard
+          // drop sound - lock is the one sound you hear on literally every
+          // single piece, so it stood out the most that these never got one.
+          else if (currentTheme === 'cyberpunk') { playClick('square', 600, 180, 0.05, 0.07); playClick('sine', 1800, 1800, 0.02, 0.03); }
+          else if (currentTheme === 'paint') { playClick('sine', 350, 150, 0.07, 0.1); playNoise(0.03, 0.05); }
+          else if (currentTheme === 'clouds') playClick('sine', 500, 250, 0.06, 0.1);
+          else if (currentTheme === 'steampunk') { playClick('square', 180, 90, 0.06, 0.09); playNoise(0.04, 0.06); }
           else playClick('square', 250, 60, 0.04, 0.08);
+      },
+      // A "dumf" the instant a piece first touches down (floor or stack) but
+      // hasn't actually locked yet - fires once per landing (see the
+      // lockTimer===0 check at the call site in the main step loop), not
+      // every frame it sits there, and not again until it's airborne and
+      // lands again. Still reads as "it's resting" vs. lock()'s "it's
+      // placed". Modeled on a rock settling onto rock, calmly - a short,
+      // rounded "tok" (the stones actually touching, triangle not square so
+      // it stays soft rather than buzzy) immediately on top of a deeper,
+      // duller lowpass thump (the resonant body), rather than one thin tick.
+      landTouch: (bot) => {
+          if(bot) return;
+          playFilteredNoise(0.11, 0.55, 95, 1.1, 'lowpass');
+          if (currentTheme === 'slime') playClick('sine', 110, 70, 0.08, 0.2);
+          else if (currentTheme === 'water') playClick('sine', 130, 80, 0.09, 0.19);
+          else if (currentTheme === 'gems') playClick('triangle', 600, 350, 0.07, 0.19);
+          else if (currentTheme === 'glass') playClick('sine', 1000, 750, 0.06, 0.17);
+          else if (currentTheme === 'neon') playClick('square', 120, 80, 0.07, 0.19);
+          else if (currentTheme === 'monochrome') playClick('square', 100, 70, 0.07, 0.19);
+          else if (currentTheme === 'wood') playClick('triangle', 150, 90, 0.07, 0.2);
+          else if (currentTheme === 'steampunk') playClick('square', 90, 60, 0.07, 0.2);
+          else if (currentTheme === 'cyberpunk') playClick('square', 110, 70, 0.06, 0.19);
+          else if (currentTheme === 'paint') playClick('square', 120, 80, 0.06, 0.19);
+          else if (currentTheme === 'clouds') playClick('sine', 180, 120, 0.08, 0.17);
+          else playClick('triangle', 240, 90, 0.06, 0.2);
       },
       hold: (bot) => {
           if(bot) return;
@@ -16292,10 +17466,11 @@
         particles: [], hardDropTrails: [], floatingTexts: [], blockFlashes: [], lineFlashes: [],
         shakeTime: 0, shakeMag: 0, bounceY: 0,
         fallY: 0, fallVy: 0,
-        lockTimer: 0, lockResets: 0, frameCount: 0,
+        lockTimer: 0, lockResets: 0, frameCount: 0, wasGrounded: false,
         actionText: "", actionTimer: 0, rotCount: 0,
         damageCombo: 0, damageTimer: 0, damageY: 0,
         dischargeTimer: 0, shockTimer: 0, dischargeColor: '#00ffff',
+        b2bFlash: 0, b2bFlashColor: '#ffffff',
         b2bReleaseAnim: { active: false, timer: 0, damage: 0 },
         allClearAnim: { active: false, timer: 0 },
         victoryAnim: { active: false, timer: 0 },
@@ -16316,12 +17491,34 @@
       };
     }
 
-    function spawnProjectiles(p, target, amount) {
-      let srcCanvas = document.getElementById(`${p.prefix}-game`);
-      spawnProjectilesFrom(srcCanvas, target, amount);
+    // A B2B RELEASE hits the enemy board for real - the same fading mark a
+    // hard drop leaves behind it (see hardDropTrails/performHardDrop), just
+    // coloured for the tier that was cashed in and spanning the whole board
+    // instead of one piece's own footprint, so the release itself reads as
+    // an actual attack landing rather than just a number joining the queue.
+    function triggerBoardSlam(target, color) {
+        target.hardDropTrails.push({
+            col: 0,
+            startRow: 0,
+            endRow: 20,
+            matrix: [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
+            color: color === 'rainbow' ? '#ffffff' : color,
+            life: 1.0
+        });
+        target.shakeTime = Math.max(target.shakeTime, 10);
+        target.shakeMag = Math.max(target.shakeMag, 5);
     }
 
-    // Same flying-laser attack used for VS damage, but launched from an
+    function spawnProjectiles(p, target, amount) {
+      let srcCanvas = document.getElementById(`${p.prefix}-game`);
+      // Which side the hit lands on is what the Colosseum's crowd actually
+      // cares about (it reacts on the target's side, not whoever threw it) -
+      // see renderVsColosseum/triggerColosseumCheer.
+      spawnProjectilesFrom(srcCanvas, target, amount);
+      triggerColosseumCheer(target.prefix === 'p1' ? 'left' : 'right');
+    }
+
+    // Same flying paint-stroke attack used for VS damage, but launched from an
     // arbitrary DOM element instead of an opponent's board - lets Survival's
     // garbage dial fire the identical effect at your own board.
     function spawnProjectilesFrom(srcEl, target, amount) {
@@ -16339,21 +17536,50 @@
 
       let spreadX = Math.abs(startX - endX) * 0.8;
 
+      // Fairly fast (0.028-0.05 of the whole flight per frame, versus the old
+      // laser's 0.02-0.035) so the stroke reads as a quick flick, not a slow glide.
       for(let i=0; i < amount; i++) {
+        // A full rainbow sweep across the stroke's own length rather than a
+        // single flat colour - a different random starting hue per shot so a
+        // volley of several doesn't all paint the identical stripe.
+        const hueBase = Math.random() * 360;
+        const headHue = hueBase;
         let el = document.createElement('div');
         el.className = 'projectile';
+        el.style.background = `linear-gradient(90deg, transparent 0%, hsl(${headHue},95%,62%) 45%, hsl(${(headHue+50)%360},95%,78%) 100%)`;
+        el.style.boxShadow = `0 0 14px 3px hsl(${headHue},95%,62%)`;
         document.body.appendChild(el);
+
+        // A long trail of dabs, each repositioned every frame to an older
+        // point in this shot's own flight history (see updateProjectiles) so
+        // the stroke drags a real rainbow ribbon behind it rather than
+        // snapping cleanly from frame to frame. Colour is fixed per-dab at
+        // spawn (a hue step along the trail), since it only ever depends on
+        // the dab's own fixed index - no need to recompute it every frame.
+        const TRAIL_LEN = 16;
+        let trailEls = [];
+        for (let tI = 0; tI < TRAIL_LEN; tI++) {
+          let tEl = document.createElement('div');
+          tEl.className = 'projectile-trail';
+          const hue = (hueBase + tI * 14) % 360;
+          tEl.style.background = `hsl(${hue}, 95%, 62%)`;
+          tEl.style.boxShadow = `0 0 7px hsl(${hue}, 95%, 62%)`;
+          document.body.appendChild(tEl);
+          trailEls.push(tEl);
+        }
 
         let ctrlX = (startX + endX) / 2 + (Math.random() - 0.5) * (spreadX + 300);
         let ctrlY = Math.min(startY, endY) - 50 - Math.random() * 400;
 
         projectiles.push({
           el: el,
+          trailEls,
+          history: [],
           t: -i * 0.1,
           startX, startY,
           ctrlX, ctrlY,
           endX, endY,
-          speed: 0.02 + Math.random() * 0.015,
+          speed: 0.028 + Math.random() * 0.022,
           target: target
         });
       }
@@ -16674,6 +17900,37 @@
       }
     }
 
+    // Single source of truth for every B2B tier colour - the badge, the
+    // board's rim flash/glow, the release attack, the discharge/shock
+    // colour, and the incoming-attack preview all used to carry their own
+    // separate copy of these breakpoints (and had drifted out of sync with
+    // each other over time). One lookup now; change a tier here and every
+    // one of those follows automatically.
+    const B2B_TIERS = [
+      { max: 4,        color: '#ffffff', star: 'star-white',      text: 'text-black' },
+      { max: 7,        color: '#39ff6a', star: 'star-green',      text: 'text-black' },
+      { max: 10,       color: '#ffe600', star: 'star-yellow',     text: 'text-black' },
+      { max: 14,       color: '#ff9900', star: 'star-orange',     text: 'text-black' },
+      { max: 18,       color: '#ff3366', star: 'star-red',        text: 'text-white' },
+      { max: 22,       color: '#aa00ff', star: 'star-purple',     text: 'text-white' },
+      { max: 25,       color: '#6a0dad', star: 'star-darkpurple', text: 'text-white' },
+      { max: Infinity, color: 'rainbow', star: 'star-rainbow',    text: 'text-white' }
+    ];
+    function getB2BTier(n) {
+      for (let i = 0; i < B2B_TIERS.length; i++) {
+        if (n <= B2B_TIERS[i].max) return Object.assign({ index: i + 1 }, B2B_TIERS[i]);
+      }
+      return Object.assign({ index: B2B_TIERS.length }, B2B_TIERS[B2B_TIERS.length - 1]);
+    }
+    // Tier colour is either a literal CSS colour or the string 'rainbow' -
+    // every draw/style call that consumes a tier colour needs to resolve
+    // that case the same way, so it lives in one place too.
+    function resolveB2BColor(color, timeMs) {
+      if (color !== 'rainbow') return color;
+      const hue = ((timeMs !== undefined ? timeMs : performance.now()) / 5) % 360;
+      return `hsl(${hue}, 100%, 60%)`;
+    }
+
     function updateStatsUI(p) {
       if (gameMode === 'endless' || gameMode === 'puzzles') {
         document.getElementById(`${p.prefix}-score`).innerText = p.score;
@@ -16709,26 +17966,14 @@
           b2bStar.className = 'b2b-star';
           b2bText.className = 'b2b-text';
 
-          // Cyan used to be reachable at exactly B2B 5 and nowhere else, because
-          // its test was "<= 5" directly after "<= 4". Every tier now has a real
-          // range; the boundaries that matter elsewhere (shock at 5, rainbow at
-          // 15) are unchanged.
-          if (p.b2b <= 4) {
-              b2bStar.classList.add('star-white');
-              b2bText.classList.add('text-black');
-          } else if (p.b2b <= 7) {
-              b2bStar.classList.add('star-cyan');
-              b2bText.classList.add('text-black');
-          } else if (p.b2b <= 11) {
-              b2bStar.classList.add('star-purple');
-              b2bText.classList.add('text-white');
-          } else if (p.b2b <= 14) {
-              b2bStar.classList.add('star-red');
-              b2bText.classList.add('text-white');
-          } else {
-              b2bStar.classList.add('star-rainbow');
-              b2bText.classList.add('text-white');
-          }
+          // The badge itself grows a notch with every tier, on top of the
+          // star/text colour change - a longer chain should look like a
+          // bigger deal, not just a different colour at the same size.
+          for (let bt = 1; bt <= B2B_TIERS.length; bt++) b2bBadge.classList.remove('b2b-tier-' + bt);
+          const tier = getB2BTier(p.b2b);
+          b2bBadge.classList.add('b2b-tier-' + tier.index);
+          b2bStar.classList.add(tier.star);
+          b2bText.classList.add(tier.text);
       }
     }
 
@@ -16920,11 +18165,7 @@
       let diffClear = false;
 
       let wasElectric = (p.b2b >= 5);
-
-      let eColor = '#00ffff';
-      if (p.b2b >= 6) eColor = '#aa00ff';
-      if (p.b2b >= 10) eColor = '#ff3366';
-      if (p.b2b >= 15) eColor = 'rainbow';
+      let eColor = getB2BTier(p.b2b).color;
 
       if(lines > 0) {
         p.lines += lines;
@@ -17017,6 +18258,11 @@
       damage += clearDmg;
 
       let willDischarge = false;
+      // Set true only by an actual B2B RELEASE below - triggers the board-slam
+      // impact mark on whichever opponent ends up on the receiving end of the
+      // damage (see the target-resolution block further down).
+      let b2bReleaseAttack = false;
+      let b2bReleaseColor = '#ffffff';
 
       if (diffClear) {
         if (p.b2b) {
@@ -17027,6 +18273,13 @@
             sfx.b2b(p.isBot);
 
             if (p.b2b >= 5 && damage > 0) willDischarge = true;
+
+            // One flash of the rim, in whatever tier colour the badge just
+            // reached, so a growing chain reads as a sequence of events
+            // instead of a number quietly ticking up in the corner. Same
+            // tier breakpoints as the badge itself and the ambient glow.
+            p.b2bFlash = 24;
+            p.b2bFlashColor = getB2BTier(p.b2b).color;
         } else {
             p.b2b = 1;
         }
@@ -17040,9 +18293,13 @@
 
             p.b2bReleaseAnim = { active: true, timer: 45, damage: releaseDmg };
 
+            let releaseColor = getB2BTier(p.b2b).color;
+            b2bReleaseAttack = true;
+            b2bReleaseColor = releaseColor;
             let b2bBadge = document.getElementById(`${p.prefix}-b2b-badge`);
             if (b2bBadge) {
                 b2bBadge.classList.remove('active');
+                spawnB2BShards(b2bBadge, releaseColor);
                 b2bBadge.classList.add('release');
                 setTimeout(() => {
                     b2bBadge.classList.remove('release');
@@ -17141,6 +18398,7 @@
              if (p.isBot) damage = Math.round(damage * enduranceGarbageMult());
              target.garbageQueue.push({ lines: damage, timer: 0 });
              spawnProjectiles(p, target, damage);
+             if (b2bReleaseAttack) triggerBoardSlam(target, b2bReleaseColor);
 
              if (willDischarge || wasElectric) {
                  p.dischargeTimer = 30;
@@ -17248,7 +18506,24 @@
       if (gameMode === 'tutorial' && p === players[0]) tutorialProgress.held = true;
     }
 
-    function evaluateBoard(tempBoard, linesCleared, isTSpin) {
+    // A T overhang pocket: some cell is empty, has a filled cell directly on
+    // both sides, and the cell below it is also empty (so a T pointing down
+    // actually fits and has somewhere to drop into) - the classic T-spin
+    // single/double entry shape. Heuristic, not exhaustive (it doesn't check
+    // kick legality), but good enough to make 'tricky' prefer boards that
+    // keep one of these around instead of flattening it away by accident.
+    function hasTSpinPocket(tempBoard) {
+      for (let c = 1; c <= 8; c++) {
+        for (let r = SPAWN_ROW; r < 19; r++) {
+          const row = tempBoard[r], rowBelow = tempBoard[r + 1];
+          if (!row || !rowBelow) continue;
+          if (!row[c] && row[c - 1] && row[c + 1] && !rowBelow[c]) return true;
+        }
+      }
+      return false;
+    }
+
+    function evaluateBoard(tempBoard, linesCleared, isTSpin, p, playstyle) {
       let holes = 0, bump = 0, aggHeight = 0;
       let cols = Array(10).fill(0);
 
@@ -17267,12 +18542,16 @@
       for(let c=0; c<9; c++) bump += Math.abs(cols[c] - cols[c+1]);
       let maxHeight = Math.max(...cols);
 
+      // 'survivor' leans much harder on everything that keeps a board
+      // alive - holes/bumpiness/height all cost noticeably more, so it
+      // never trades safety for a fancier clear the way balanced/tricky will.
+      const survivor = playstyle === 'survivor';
       let score = 0;
 
-      score -= (holes * 2500);
-      score -= (bump * 25);
-      score -= (aggHeight * 15);
-      score -= (maxHeight * 60);
+      score -= (holes * (survivor ? 3400 : 2500));
+      score -= (bump * (survivor ? 32 : 25));
+      score -= (aggHeight * (survivor ? 20 : 15));
+      score -= (maxHeight * (survivor ? 85 : 60));
 
       if (maxHeight > 14) score -= 8000;
 
@@ -17290,18 +18569,106 @@
       }
 
       if (isTSpin) {
-          score += (linesCleared * 4000);
+          score += (linesCleared * (survivor ? 2000 : 4000));
       } else if (linesCleared === 4) {
-          score += 3000;
+          score += survivor ? 2600 : 3000;
       } else if (linesCleared > 0) {
-          if (maxHeight > 10) {
-              score += (linesCleared * 800);
+          // survivor takes any clear it can get right away rather than
+          // waiting for a tall-enough board to "deserve" it - staying low
+          // matters more to it than a bigger number later.
+          if (survivor || maxHeight > 10) {
+              score += (linesCleared * (survivor ? 900 : 800));
           } else {
               score -= 250;
           }
       }
 
+      if (playstyle === 'tricky' && p) {
+          const diffClear = isTSpin || linesCleared === 4;
+          const b2bActive = p.b2b > 0;
+          // Keep a running B2B chain going...
+          if (diffClear && b2bActive) score += 1800;
+          // ...and don't cash it in for a throwaway single/double/triple
+          // unless the board is actually getting dangerous - "safely alive"
+          // takes priority over the chain the instant that's in question.
+          if (!diffClear && linesCleared > 0 && b2bActive && maxHeight < 13) score -= 2200;
+          // Reward keeping a T-spin pocket open while there's still room to
+          // - once the stack gets tall, that pocket becomes a liability
+          // (an unfillable hole risk) rather than an opportunity, so this
+          // only applies on a board that's still comfortably low.
+          if (maxHeight < 12 && hasTSpinPocket(tempBoard)) score += 550;
+      }
+
       return score;
+    }
+
+    // The 4 rotation states of T, precomputed once - findTPlacements below
+    // runs per bot decision and has no reason to re-derive these every time.
+    const T_ROT_MATRICES = (() => {
+      let mats = [tetrominos['T']];
+      for (let i = 1; i < 4; i++) mats.push(rotateM(mats[i - 1], true));
+      return mats;
+    })();
+
+    // All reachable RESTING placements for a T piece dropped from spawn,
+    // found via a real BFS over left/right/soft-drop/rotate-cw/rotate-ccw/
+    // rotate-180 (each rotate resolved through the exact same kick tables
+    // attemptRotate/attemptRotate180 use for a real player) - not just
+    // "pick a rotation, slide to a column, drop straight down". That
+    // straight-drop model is what calculateBotTarget's main loop already
+    // does and is correct for ordinary placements, but it structurally
+    // cannot find most T-spins: the whole point of a T-spin is tucking the
+    // piece somewhere a straight vertical drop could never reach. The board
+    // is small (20 rows x 10 cols x 4 rotations, 800 states at most) so an
+    // exhaustive BFS here is cheap - this is the same class of algorithm any
+    // "find every legal placement" Tetris bot uses.
+    function findTPlacements(playfield) {
+      const spawnCol = 5 - Math.ceil(T_ROT_MATRICES[0][0].length / 2);
+      const start = { row: SPAWN_ROW, col: spawnCol, rot: 0 };
+      if (!isValid(T_ROT_MATRICES[0], start.row, start.col, playfield)) return [];
+
+      const key = s => s.row + ',' + s.col + ',' + s.rot;
+      const visited = new Set([key(start)]);
+      const queue = [{ ...start, path: [] }];
+      const resting = [];
+      let qi = 0;
+      while (qi < queue.length) {
+        const s = queue[qi++];
+        const mat = T_ROT_MATRICES[s.rot];
+
+        if (!isValid(mat, s.row + 1, s.col, playfield)) {
+          resting.push(s);
+        } else {
+          const d = { row: s.row + 1, col: s.col, rot: s.rot };
+          if (!visited.has(key(d))) { visited.add(key(d)); queue.push({ ...d, path: [...s.path, 'D'] }); }
+        }
+
+        const l = { row: s.row, col: s.col - 1, rot: s.rot };
+        if (isValid(mat, l.row, l.col, playfield) && !visited.has(key(l))) {
+          visited.add(key(l)); queue.push({ ...l, path: [...s.path, 'L'] });
+        }
+        const r = { row: s.row, col: s.col + 1, rot: s.rot };
+        if (isValid(mat, r.row, r.col, playfield) && !visited.has(key(r))) {
+          visited.add(key(r)); queue.push({ ...r, path: [...s.path, 'R'] });
+        }
+
+        const rotTries = [
+          ['CW', (s.rot + 1) % 4, JLSTZ_KICKS[`${s.rot}->${(s.rot + 1) % 4}`]],
+          ['CCW', (s.rot + 3) % 4, JLSTZ_KICKS[`${s.rot}->${(s.rot + 3) % 4}`]],
+          ['180', (s.rot + 2) % 4, ROTATE_180_KICKS]
+        ];
+        for (const [label, newRot, table] of rotTries) {
+          const newMat = T_ROT_MATRICES[newRot];
+          for (const [ox, oy] of table) {
+            const cand = { row: s.row + oy, col: s.col + ox, rot: newRot };
+            if (isValid(newMat, cand.row, cand.col, playfield)) {
+              if (!visited.has(key(cand))) { visited.add(key(cand)); queue.push({ ...cand, path: [...s.path, label] }); }
+              break; // first valid kick only, same as the real rotate functions
+            }
+          }
+        }
+      }
+      return resting;
     }
 
     function calculateBotTarget(p) {
@@ -17368,8 +18735,60 @@
                   if (corners >= 3) isTSpin = true;
               }
 
-              let score = evaluateBoard(temp, linesCleared, isTSpin);
+              let score = evaluateBoard(temp, linesCleared, isTSpin, p, botPlaystyle);
               if(score > bestScore) { bestScore = score; p.botTarget = { col, rot, hold: isHold }; }
+            }
+          }
+        }
+
+        // 'tricky' also searches genuine T-spin entries via a full BFS over
+        // the real move set (left/right/soft-drop/rotate, each resolved
+        // through the exact kick tables attemptRotate/180 use) - not just
+        // "rotate once then drop straight down, maybe kick once at the
+        // bottom". Most real T-spin pockets need an actual TUCK: shift
+        // sideways mid-fall, drop further, THEN rotate - a single kick from
+        // a straight-drop rest can never reproduce that, only a real search
+        // over the reachable-state graph can.
+        if (pName === 'T' && botPlaystyle === 'tricky') {
+          const placements = findTPlacements(p.playfield);
+          for (const placement of placements) {
+            const finalMat = T_ROT_MATRICES[placement.rot];
+            const corners = checkCorner(p, placement.row, placement.col, 0, 0) + checkCorner(p, placement.row, placement.col, 0, 2) +
+                             checkCorner(p, placement.row, placement.col, 2, 0) + checkCorner(p, placement.row, placement.col, 2, 2);
+            if (corners < 3) continue; // not a real T-spin - the straight-drop search above already covers plain fits
+            // lockPiece only ever checks the corner rule when lastRot is
+            // true, which only a rotate sets - a path that happens to end
+            // in a soft drop would satisfy the corner rule geometrically but
+            // lock as a plain placement for real, since the last thing that
+            // actually happened to the piece was a move, not a spin.
+            const lastAction = placement.path[placement.path.length - 1];
+            if (!['CW', 'CCW', '180'].includes(lastAction)) continue;
+
+            let temp = {};
+            for (let r = SPAWN_ROW; r < 20; r++) temp[r] = [...p.playfield[r]];
+            for (let tr = 0; tr < finalMat.length; tr++) {
+              for (let tc = 0; tc < finalMat[tr].length; tc++) {
+                if (finalMat[tr][tc] && placement.row + tr >= SPAWN_ROW && placement.row + tr < 20) temp[placement.row + tr][placement.col + tc] = 1;
+              }
+            }
+
+            let linesCleared = 0;
+            for (let r = SPAWN_ROW; r < 20; r++) {
+              if (temp[r].every(cell => !!cell)) {
+                linesCleared++;
+                for (let shiftY = r; shiftY > SPAWN_ROW; shiftY--) temp[shiftY] = [...temp[shiftY - 1]];
+                temp[SPAWN_ROW] = new Array(10).fill(0);
+              }
+            }
+
+            const score = evaluateBoard(temp, linesCleared, true, p, botPlaystyle);
+            if (score > bestScore) {
+              bestScore = score;
+              // path tells updateBot this target needs to play out an exact
+              // move sequence (not just "reach this col/rot, then drop") to
+              // actually land the tuck - a straight slide-then-drop would
+              // miss the pocket entirely for most of these.
+              p.botTarget = { hold: isHold, path: [...placement.path] };
             }
           }
         }
@@ -17403,6 +18822,43 @@
         if (p.botTarget.hold && p.canHold) {
             executeHold(p);
             return;
+        }
+
+        // T-spin plan: an exact move sequence found by findTPlacements, not
+        // just a target col/rot - a tuck needs specific moves played in a
+        // specific order (shift, drop further, THEN rotate), so this plays
+        // the plan back literally, one action per decision tick, rather
+        // than greedily steering toward a final position the way the plain
+        // col/rot path below does. "Thinking" - taking several ticks and
+        // actually soft-dropping as part of the plan - rather than an
+        // instant hard drop, is what makes the tuck itself possible at all.
+        if (p.botTarget.path) {
+          if (p.botTarget.path.length === 0) {
+            // Plan fully played out - it was only ever generated for
+            // positions that end up resting, so lock here.
+            sfx.hardDrop(true); p.shakeTime=4; p.shakeMag=2; p.bounceY=18; lockPiece(p);
+            return;
+          }
+          const action = p.botTarget.path.shift();
+          let ok = true;
+          if (action === 'L') { ok = isValid(p.tetromino.matrix, p.tetromino.row, p.tetromino.col-1, p.playfield); if (ok) move(p, -1); }
+          else if (action === 'R') { ok = isValid(p.tetromino.matrix, p.tetromino.row, p.tetromino.col+1, p.playfield); if (ok) move(p, 1); }
+          else if (action === 'D') {
+            ok = isValid(p.tetromino.matrix, p.tetromino.row+1, p.tetromino.col, p.playfield);
+            if (ok) { p.tetromino.row++; if (p.lockResets < 15) { p.lockTimer = 0; p.lockResets++; } sfx.move(true); }
+          }
+          else if (action === 'CW') ok = attemptRotate(p, true);
+          else if (action === 'CCW') ok = attemptRotate(p, false);
+          else if (action === '180') ok = attemptRotate180(p);
+
+          if (!ok) {
+            // The board changed since this was planned (a garbage insert,
+            // say) and the plan no longer applies - abandon it and fall
+            // back to a plain drop from wherever the piece actually is,
+            // rather than getting stuck replaying a move that keeps failing.
+            p.botTarget = { col: p.tetromino.col, rot: p.tetromino.rotIndex, hold: false };
+          }
+          return;
         }
 
         let startCol = p.tetromino.col;
@@ -17559,6 +19015,32 @@
          ctx.moveTo(px + 6, py + gridScale*0.25); ctx.lineTo(px + gridScale - 6, py + gridScale*0.35);
          ctx.moveTo(px + 6, py + gridScale*0.6); ctx.lineTo(px + gridScale - 6, py + gridScale*0.7);
          ctx.stroke();
+      } else if (currentTheme === 'classicV2') {
+         // Fifth attempt: pixel-sampled directly from a 10x zoom of the
+         // reference's "MONNETIC TECH" cells. Two things were actually wrong
+         // before, not just "needs more polish": there was a 2px inset gap
+         // around every cell, so same-piece neighbours never touched and the
+         // whole piece read as separate floating tiles instead of one solid
+         // shape - gone now, cells are full-bleed. And the shading was a
+         // smooth 2-stop fade; the reference is a distinctly BANDED glossy
+         // highlight (bright top sliver, flat saturated middle, a darker
+         // band at the bottom), not a soft blend - rebuilt as actual bands.
+         ctx.fillStyle = color;
+         ctx.fillRect(px, py, gridScale, gridScale);
+
+         const grad = ctx.createLinearGradient(0, py, 0, py + gridScale);
+         grad.addColorStop(0,    'rgba(255,255,255,0.65)');
+         grad.addColorStop(0.16, 'rgba(255,255,255,0.65)');
+         grad.addColorStop(0.22, 'rgba(255,255,255,0.15)');
+         grad.addColorStop(0.6,  'rgba(255,255,255,0)');
+         grad.addColorStop(0.78, 'rgba(0,0,0,0.12)');
+         grad.addColorStop(1,    'rgba(0,0,0,0.3)');
+         ctx.fillStyle = grad;
+         ctx.fillRect(px, py, gridScale, gridScale);
+
+         ctx.strokeStyle = 'rgba(8,16,26,0.8)';
+         ctx.lineWidth = 1.5;
+         ctx.strokeRect(px + 0.75, py + 0.75, gridScale - 1.5, gridScale - 1.5);
       } else {
          ctx.fillStyle = color; ctx.fillRect(px, py, gridScale-1, gridScale-1);
          ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.strokeRect(px, py, gridScale-1, gridScale-1);
@@ -17692,6 +19174,36 @@
       ctx.beginPath(); ctx.moveTo(cx, cy-outR);
       for(let i=0; i<spikes; i++) { x=cx+Math.cos(rot)*outR; y=cy+Math.sin(rot)*outR; ctx.lineTo(x,y); rot+=step; x=cx+Math.cos(rot)*inR; y=cy+Math.sin(rot)*inR; ctx.lineTo(x,y); rot+=step; }
       ctx.lineTo(cx, cy-outR); ctx.closePath(); ctx.fill();
+    }
+
+    // Real DOM shards flung outward from the HUD badge on a B2B release, so
+    // "shatter" is an actual physical break instead of just the badge itself
+    // scaling up and fading (which .b2b-badge.release still also does, as the
+    // core flash underneath these). Self-cleaning: each shard removes itself.
+    function spawnB2BShards(badgeEl, color) {
+      if (!badgeEl) return;
+      const rect = badgeEl.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const col = color === 'rainbow' ? '#ff9900' : color;
+      const count = 10;
+      for (let i = 0; i < count; i++) {
+        const shard = document.createElement('div');
+        shard.className = 'b2b-shard';
+        shard.style.left = cx + 'px';
+        shard.style.top = cy + 'px';
+        shard.style.background = col;
+        shard.style.boxShadow = `0 0 6px ${col}`;
+        document.body.appendChild(shard);
+
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+        const dist = 55 + Math.random() * 55;
+        requestAnimationFrame(() => {
+          shard.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px) rotate(${Math.random() * 360}deg) scale(0.15)`;
+          shard.style.opacity = '0';
+        });
+        setTimeout(() => shard.remove(), 650);
+      }
     }
 
    function drawB2BStar(ctx, cx, cy, radius) {
@@ -18374,10 +19886,7 @@
         // long B2B run reads as "charged" everywhere near the stack, not
         // just at the outer rim.
         if (p.b2b >= 3 && !p.gameOver) {
-            let qCol = '#00ffff';
-            if (p.b2b >= 8) qCol = '#aa00ff';
-            if (p.b2b >= 12) qCol = '#ff3366';
-            if (p.b2b >= 15) qCol = `hsl(${(p.playTimeMs / 5) % 360}, 100%, 60%)`;
+            let qCol = resolveB2BColor(getB2BTier(p.b2b).color, p.playTimeMs);
             const qBreath = 0.2 + Math.sin(p.playTimeMs / 420) * 0.08;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -18555,16 +20064,7 @@
           // feeling, and starting the charge a little earlier reads as
           // "building up" toward the discharge rather than switching on
           // abruptly right at the threshold that triggers it.
-          let ambColor = '#00ffff';
-          if (p.b2b >= 8) ambColor = '#aa00ff';
-          if (p.b2b >= 12) ambColor = '#ff3366';
-          if (p.b2b >= 15) ambColor = 'rainbow';
-
-          let strokeCol = ambColor;
-          if (strokeCol === 'rainbow') {
-              let hue = (p.playTimeMs / 5) % 360;
-              strokeCol = `hsl(${hue}, 100%, 60%)`;
-          }
+          let strokeCol = resolveB2BColor(getB2BTier(p.b2b).color, p.playTimeMs);
 
           // Deliberately faint. It is ambient state, not an event - it should
           // register at the edge of vision and never compete with the stack.
@@ -18573,6 +20073,26 @@
           drawEdgeEnergy(ctx, strokeCol, breath + tierBoost, (p.playTimeMs / 2600) % 1, {
               wide: 40,
               tight: 10,
+              sparkle: true
+          });
+      }
+
+      // A short, bright pulse layered on top of whatever else is drawn above -
+      // fires once every time B2B actually increases (see the p.b2b++ branch
+      // in lockPiece), separate from the quiet always-on ambient glow.
+      if (p.b2bFlash > 0) {
+          if (!isPaused) p.b2bFlash -= frameScale;
+          const flashT = Math.max(0, p.b2bFlash) / 24;
+
+          let flashCol = p.b2bFlashColor || '#ffffff';
+          if (flashCol === 'rainbow') {
+              let hue = (p.playTimeMs / 5) % 360;
+              flashCol = `hsl(${hue}, 100%, 60%)`;
+          }
+
+          drawEdgeEnergy(ctx, flashCol, flashT * flashT * 0.9, (p.playTimeMs / 700) % 1, {
+              wide: 70 + flashT * 40,
+              tight: 20,
               sparkle: true
           });
       }
@@ -18932,6 +20452,7 @@
           s.t += s.speed;
 
           if (s.t > 1) {
+            s.trailEls.forEach(tEl => tEl.remove());
             // Splat effect
             if (s.target && !s.target.gameOver) {
                 if (Math.random() < 0.3) {
@@ -18970,7 +20491,33 @@
             s.el.style.left = x + 'px';
             s.el.style.top = y + 'px';
             s.el.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
-            s.el.style.opacity = s.t > 0.8 ? (1 - s.t) * 5 : Math.min(1, s.t * 5);
+            const headAlpha = s.t > 0.8 ? (1 - s.t) * 5 : Math.min(1, s.t * 5);
+            s.el.style.opacity = headAlpha;
+
+            // Record this frame's point, then paint each trailing dab at a
+            // progressively older point - a real fading ribbon dragging
+            // behind the stroke's head rather than a copy-pasted shape.
+            s.history.push({ x, y });
+            const maxHist = s.trailEls.length * 2 + 2;
+            if (s.history.length > maxHist) s.history.shift();
+
+            for (let tI = 0; tI < s.trailEls.length; tI++) {
+              const back = (tI + 1) * 2;
+              const hIdx = s.history.length - 1 - back;
+              const tEl = s.trailEls[tI];
+              if (hIdx < 0) { tEl.style.opacity = 0; continue; }
+              const hp = s.history[hIdx];
+              const fade = 1 - tI / s.trailEls.length;
+              const size = 14 * fade + 3;
+              tEl.style.width = size + 'px';
+              tEl.style.height = size + 'px';
+              tEl.style.left = hp.x + 'px';
+              tEl.style.top = hp.y + 'px';
+              tEl.style.transform = 'translate(-50%, -50%)';
+              tEl.style.opacity = headAlpha * fade * 0.55;
+            }
+          } else {
+            s.trailEls.forEach(tEl => tEl.style.opacity = 0);
           }
         }
     }
@@ -19237,9 +20784,17 @@
            p.frameCount=0;
         }
 
-        if (p.tetromino && !isValid(p.tetromino.matrix, p.tetromino.row+1, p.tetromino.col, p.playfield)) {
+        const isGroundedNow = !!(p.tetromino && !isValid(p.tetromino.matrix, p.tetromino.row+1, p.tetromino.col, p.playfield));
+        if (isGroundedNow) {
+             // Only on the airborne->grounded edge, not on every lock-reset
+             // while it's already resting there (moving/spinning on the
+             // floor already has its own move/rotate sfx) - otherwise
+             // shimmying a piece around at the bottom for a spin setup would
+             // retrigger this on every single shift.
+             if (!p.wasGrounded) sfx.landTouch(p.isBot);
              p.lockTimer++; if(p.lockTimer >= 80) lockPiece(p);
         }
+        p.wasGrounded = isGroundedNow;
 
         // Survival's own garbage arrives here, after this tick's lock check
         // above - so a clear that locks this same tick can only ever block
@@ -20176,7 +21731,7 @@
               if (holdTitle) holdTitle.style.display = mode === 'puyo' ? 'none' : '';
               const holdCanvasEl = document.getElementById('p1-hold');
               if (holdCanvasEl) holdCanvasEl.style.display = mode === 'puyo' ? 'none' : '';
-              const badgesC = document.querySelector('#p1-hold-frame .badges-container');
+              const badgesC = document.getElementById('p1-badges-container');
               if (badgesC) badgesC.style.display = mode === 'puyo' ? 'none' : '';
               const comboInd = document.getElementById('p1-combo');
               if (comboInd) comboInd.style.display = mode === 'puyo' ? 'none' : '';
@@ -20300,8 +21855,9 @@
     function restartGame() {
       if (players.length === 0) return;
 
-      projectiles.forEach(s => s.el.remove());
+      projectiles.forEach(s => { s.el.remove(); s.trailEls.forEach(tEl => tEl.remove()); });
       projectiles = [];
+      colosseumConfetti.length = 0;
       document.getElementById('game-overlay').style.display = 'none';
       overlayActive = false;
       bgFrozen = false;
@@ -20347,6 +21903,7 @@
          p.actionText = ""; p.actionTimer = 0; p.rotCount = 0;
          p.damageCombo = 0; p.damageTimer = 0; p.damageY = 0;
          p.dischargeTimer = 0; p.shockTimer = 0;
+         p.b2bFlash = 0;
          p.b2bReleaseAnim = { active: false, timer: 0, damage: 0 };
          p.allClearAnim = { active: false, timer: 0 };
          p.victoryAnim = { active: false, timer: 0 };
@@ -20472,8 +22029,9 @@
 
       if(bgmFilterNode) bgmFilterNode.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.1);
 
-      projectiles.forEach(s => s.el.remove());
+      projectiles.forEach(s => { s.el.remove(); s.trailEls.forEach(tEl => tEl.remove()); });
       projectiles = [];
+      colosseumConfetti.length = 0;
       overlayActive = false;
       bgFrozen = false;
       bgMode = 'menu';
