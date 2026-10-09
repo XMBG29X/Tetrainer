@@ -3396,6 +3396,25 @@
       z-index: 150;
       pointer-events: none;
     }
+    /* Two-player's own per-board echo of the countdown above - the shared
+       full-screen overlay sits dead center of the viewport, which in a
+       side-by-side two-board layout lands in the gap between them rather
+       than clearly over either one. startCountdown() shows these instead
+       of the shared overlay whenever body has .two-player. */
+    .board-countdown {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      justify-content: center;
+      align-items: center;
+      font-size: 80px;
+      font-weight: 900;
+      font-style: italic;
+      color: #fff;
+      text-shadow: 0 0 30px #00ffcc, 0 0 8px #00ffcc;
+      z-index: 150;
+      pointer-events: none;
+    }
 
     /* TUTORIAL WALK - a ghost mentor talking you through Tutorial mode,
        plus a running checklist of the whole track. Brown/tan throughout to
@@ -3665,7 +3684,7 @@
 
     /* GLOBAL LEADERBOARD - same modal pattern as the tutorial box, cyan
        instead of red so it reads as "records/stats" not "help". */
-    #leaderboard-modal, #name-prompt-modal {
+    #leaderboard-modal, #name-prompt-modal, #vsonline-modal {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(10, 10, 16, 0.95); backdrop-filter: blur(8px);
       z-index: 2000; display: flex; flex-direction: column;
@@ -3693,10 +3712,19 @@
     .lb-row-empty .lb-name, .lb-row-empty .lb-value { color: #666; font-weight: 400; }
     /* Gold/silver/bronze for the top 3 slots regardless of whether they're
        filled yet - an empty rank-1 placeholder still reads as "the gold
-       slot", just dimmed via .lb-row-empty's opacity above. */
-    .lb-row:nth-child(1) { background: rgba(255,214,0,0.12); }
-    .lb-row:nth-child(2) { background: rgba(200,200,220,0.10); }
-    .lb-row:nth-child(3) { background: rgba(205,127,50,0.12); }
+       slot", just dimmed via .lb-row-empty's opacity above. Scoped to
+       :nth-child within #leaderboard-list OR within a Survival .lb-rows
+       section, so Survival's three stacked sections (see
+       refreshSurvivalLeaderboardList) each get their own gold/silver/bronze
+       instead of counting straight through all 30 rows. */
+    #leaderboard-list > .lb-row:nth-child(1), .lb-rows > .lb-row:nth-child(1) { background: rgba(255,214,0,0.12); }
+    #leaderboard-list > .lb-row:nth-child(2), .lb-rows > .lb-row:nth-child(2) { background: rgba(200,200,220,0.10); }
+    #leaderboard-list > .lb-row:nth-child(3), .lb-rows > .lb-row:nth-child(3) { background: rgba(205,127,50,0.12); }
+    .lb-section-title {
+      width: 100%; text-align: center; color: #5be8ff; font-weight: 900;
+      font-size: 13px; letter-spacing: 2px; margin: 16px 0 6px;
+    }
+    .lb-section-title:first-child { margin-top: 0; }
     .lb-rank { width: 28px; font-weight: 900; color: #8d93a6; text-align: center; flex-shrink: 0; }
     .lb-name { flex: 1; color: #fff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lb-value { color: #00ffcc; font-weight: 900; letter-spacing: 0.5px; flex-shrink: 0; }
@@ -4708,6 +4736,34 @@
     </div>
   </div>
 
+  <!-- VS ONLINE LOBBY -->
+  <div id="vsonline-modal" style="display: none;">
+    <div class="leaderboard-box" style="border-color:#ff3366; box-shadow: 0 0 30px rgba(255,51,102,0.4);">
+      <button class="tut-close" onclick="vsOnlineCancel()">X</button>
+      <h2 style="color:#ff3366; font-size: 22px; letter-spacing: 2px; margin: 0 0 18px; text-align:center;">VS ONLINE</h2>
+
+      <div id="vso-choice">
+        <button class="menu-btn" style="width: 240px; margin-bottom: 12px;" onclick="vsOnlineCreateRoom()">CREATE ROOM</button>
+        <button class="menu-btn" style="width: 240px;" onclick="vsOnlineShowJoin()">JOIN ROOM</button>
+      </div>
+
+      <div id="vso-join" style="display:none; flex-direction:column; align-items:center;">
+        <p style="color:#ccc; font-size: 13px; margin: 0 0 14px; text-align:center;">Enter the room code your opponent gave you.</p>
+        <input id="vso-code-input" type="text" maxlength="4" placeholder="CODE" class="lb-select"
+               style="width: 160px; height: 46px; font-size: 22px; text-align:center; letter-spacing: 6px; text-transform: uppercase;"
+               onkeydown="if(event.key==='Enter') vsOnlineJoinRoom();">
+        <button class="menu-btn" style="width: 200px; margin-top: 16px;" onclick="vsOnlineJoinRoom()">JOIN</button>
+      </div>
+
+      <div id="vso-waiting" style="display:none; flex-direction:column; align-items:center;">
+        <p style="color:#ccc; font-size: 13px; margin: 0 0 10px; text-align:center;" id="vso-waiting-text">Share this code with your opponent:</p>
+        <div id="vso-code-display" style="color:#ff3366; font-size: 38px; font-weight: 900; letter-spacing: 10px; margin-bottom: 10px;"></div>
+        <div id="vso-status" style="color:#5be8ff; font-size: 13px; font-weight:700; letter-spacing:1px; min-height: 18px;">Waiting for opponent...</div>
+        <button class="menu-btn" style="width: 160px; margin-top: 18px;" onclick="vsOnlineCancel()">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TUTORIAL MODAL -->
   <div id="tutorial-modal" style="display: none;">
     <div class="tutorial-box">
@@ -5426,6 +5482,7 @@
         </div>
         <canvas id="p1-buffer" class="buffer-canvas" width="340" height="96"></canvas>
         <canvas id="p1-game" class="main-canvas" width="340" height="640"></canvas>
+        <div class="board-countdown" id="p1-board-countdown"></div>
         <div class="danger-indicator" id="p1-danger">
           <svg viewBox="0 0 24 24" fill="#ff3366" stroke="black" stroke-width="1.5"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
         </div>
@@ -5558,6 +5615,7 @@
         </div>
         <canvas id="p2-buffer" class="buffer-canvas" width="340" height="96"></canvas>
         <canvas id="p2-game" class="main-canvas" width="340" height="640"></canvas>
+        <div class="board-countdown" id="p2-board-countdown"></div>
         <div class="danger-indicator" id="p2-danger">
           <svg viewBox="0 0 24 24" fill="#ff3366" stroke="black" stroke-width="1.5"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
         </div>
@@ -5698,7 +5756,7 @@
         else if (mode === 'endless' || mode === 'tutorial') currentPlaylist = PLAYLISTS.endless;
         else if (mode === 'sprint') currentPlaylist = PLAYLISTS.sprint;
         else if (mode === 'puzzles' || mode === 'puyo') currentPlaylist = PLAYLISTS.puzzles;
-        else if (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance' || mode === 'boss') currentPlaylist = PLAYLISTS.battle;
+        else if (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance' || mode === 'boss' || mode === 'vsonline') currentPlaylist = PLAYLISTS.battle;
         else currentPlaylist = PLAYLISTS.default;
 
         if (currentPlaylist.length > 1) {
@@ -5904,9 +5962,33 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.116';
+    const GAME_VERSION = '1.118';
 
     const PATCH_NOTES = [
+      {
+        version: '1.118',
+        date: '9 Oct 2026',
+        title: 'VS Online actually plays now',
+        changes: [
+          { tag: 'new', text: '<b>VS Online is a real match now, not just a connection test.</b> Once a room finds its second player, it launches straight into a live game: your opponent\'s board, pieces, combos and B2B all show up on your screen in real time, and clearing lines sends real garbage to their real board over the network - same attacks, same visuals as fighting a local bot.' },
+          { tag: 'change', text: '<b>Bot modes (and VS Online) share a background now</b> for most of the mode-specific battle mechanics (overtime garbage multiplier, danger glow, B2B flash, the match timer) - VS Online plays by the exact same rules VS Bot always has, just against a person instead of an AI.' },
+          { tag: 'new', text: '<b>VS Online uses a blank background</b> instead of the Colosseum - deliberately plain so nothing distracts from an actual live opponent.' },
+          { tag: 'new', text: '<b>The 3, 2, 1, GO countdown now shows directly over BOTH boards</b> in any two-player mode, not one shared number floating in the gap between them.' },
+          { tag: 'fix', text: '<b>Typing a room code no longer leaks into the menu behind it.</b> Arrow keys and Enter were still driving the mode carousel while you typed, which could flip the selected card (and its background) out from under the lobby. Any focused text field now swallows those keys first.' },
+          { tag: 'new', text: '<b>Survival\'s leaderboard shows all three rankings at once</b> - WAVE, DISTANCE and DISTANCE + WAVE all stacked in one view, instead of needing to flip a dropdown between them to see each one.' },
+          { tag: 'change', text: 'Online play detects a disconnect (alerts you and returns to the menu) but there is no reconnect yet - if your connection drops mid-match, that match is over. Fine for a casual game with friends; worth knowing before relying on it over a shaky connection.' }
+        ]
+      },
+      {
+        version: '1.117',
+        date: '9 Oct 2026',
+        title: 'VS Online - room codes (phase 1)',
+        changes: [
+          { tag: 'new', text: '<b>A new VS Online mode card.</b> Create a room to get a 4-character code to share, or join one with a code a friend gave you. Once both of you are connected, the match is found automatically - no account or server queue involved, just a shared code.' },
+          { tag: 'fix', text: 'Caught a crash during testing where the host side of a match threw a ReferenceError the moment it found an opponent, right as it tried to send the start signal - found and fixed before anyone else could hit it.' },
+          { tag: 'change', text: 'This first pass proves out the connection itself (room codes, finding each other, starting together) - actual synced online gameplay (seeing your opponent\'s board live, attacks landing across the network) is coming in the next update.' }
+        ]
+      },
       {
         version: '1.116',
         date: '9 Oct 2026',
@@ -8140,16 +8222,10 @@
         // trophy/results buttons already pick the right mode for you).
         modeSel.disabled = true;
 
-        const categories = LB_CATEGORIES[lbState.mode];
-        if (categories) {
-            catWrap.style.display = '';
-            catSel.innerHTML = categories.map(c => `<option value="${c.key}">${c.label}</option>`).join('');
-            if (!categories.some(c => c.key === lbState.category)) lbState.category = categories[0].key;
-            catSel.value = lbState.category;
-        } else {
-            catWrap.style.display = 'none';
-            lbState.category = null;
-        }
+        // Survival used to need this to switch between its three rankings -
+        // it now shows all three at once (see refreshSurvivalLeaderboardList),
+        // so there's nothing left for a category picker to actually do.
+        catWrap.style.display = 'none';
 
         // Game speed is locked at 2.2x for everyone now, so showing a speed
         // picker here would just be a dropdown with one meaningful option -
@@ -8185,6 +8261,13 @@
         if (!modal || !list || !title) return;
 
         const { mode, category, variant } = lbState;
+
+        // Survival tracks three separate rankings (wave/distance/combined) -
+        // rather than making you flip a dropdown between them one at a
+        // time, all three show at once so you can see the best of all
+        // worlds in one look.
+        if (mode === 'survival') return refreshSurvivalLeaderboardList(variant);
+
         // Survival's category label already says exactly what's being
         // ranked (WAVE / DISTANCE / DISTANCE + WAVE) - showing BEST_LABELS'
         // own generic label alongside it just repeated the same word twice.
@@ -8224,6 +8307,51 @@
             </div>`;
         }
         list.innerHTML = filled + placeholders;
+    }
+
+    // Builds one block per Survival ranking (wave/distance/combined), each
+    // with its own header and its own 10 rows (real entries then empty
+    // placeholders, same rule as the single-category path above) - one
+    // query per ranking, fetched in parallel.
+    async function refreshSurvivalLeaderboardList(variant) {
+        const modal = document.getElementById('leaderboard-modal');
+        const list = document.getElementById('leaderboard-list');
+        const title = document.getElementById('leaderboard-title');
+        if (!modal || !list || !title) return;
+
+        title.innerText = 'SURVIVAL - ALL RECORDS';
+        list.innerHTML = '<div class="lb-empty">Loading...</div>';
+
+        if (!sbClient) {
+            list.innerHTML = '<div class="lb-empty">Leaderboard unavailable right now.</div>';
+            return;
+        }
+
+        const categories = LB_CATEGORIES.survival;
+        const results = await Promise.all(categories.map(c => fetchLeaderboard('survival', variant, 10, c.key)));
+
+        if (modal.style.display === 'none' || lbState.mode !== 'survival' || lbState.variant !== variant) return;
+
+        list.innerHTML = categories.map((c, idx) => {
+            const rows = results[idx];
+            const filled = rows.map((r, i) => `
+                <div class="lb-row">
+                  <span class="lb-rank">${i + 1}</span>
+                  <span class="lb-name">${escapeHtml(r.player_name)}</span>
+                  <span class="lb-value">${escapeHtml(lbFormatValue('survival', r))}</span>
+                </div>
+            `).join('');
+            let placeholders = '';
+            for (let i = rows.length; i < 10; i++) {
+                placeholders += `
+                <div class="lb-row lb-row-empty">
+                  <span class="lb-rank">${i + 1}</span>
+                  <span class="lb-name">-</span>
+                  <span class="lb-value">-</span>
+                </div>`;
+            }
+            return `<div class="lb-section-title">${c.label}</div><div class="lb-rows">${filled}${placeholders}</div>`;
+        }).join('');
     }
 
     function lbControlChanged() {
@@ -8269,6 +8397,285 @@
         const mode = (modeDeck[selectedModeIndex] && modeDeck[selectedModeIndex].mode) || 'endless';
         const category = LB_CATEGORIES[mode] ? LB_CATEGORIES[mode][0].key : null;
         openLeaderboard(mode, category, getResultVariantLabel(mode));
+    }
+
+    // ================================================================
+    // VS ONLINE
+    // Two players find each other with a short room code over a Supabase
+    // Realtime channel (no server/matchmaking queue needed - the channel
+    // name IS the room). Presence tracks who's actually connected; once
+    // both sides are present the host broadcasts a shared start timestamp
+    // so both clients begin the match at the same moment.
+    //
+    // GAMEPLAY SYNC MODEL: your own board (p1) is simulated locally exactly
+    // like every other mode always has been - nothing about your own board
+    // changes. The opponent's board (p2) is NEVER simulated locally at all;
+    // it is a pure rendering mirror (see createPlayerState's isOnlineMirror
+    // flag and stepGame's early bail for it) whose fields are overwritten
+    // wholesale whenever a 'state' broadcast arrives from the real remote
+    // player. Attacks you land are computed locally (for your own instant
+    // visual feedback against the mirror) AND sent as a separate 'attack'
+    // event so the real damage actually lands on the opponent's real board
+    // on their end. This is simpler and far more robust than true lockstep
+    // (no shared RNG/seed to keep in sync), at the cost of the opponent's
+    // board being a close-but-not-frame-perfect replay of what they're
+    // actually doing - fine for a casual match, not built for tournament-
+    // grade netcode.
+    // ================================================================
+    let vsoChannel = null;
+    let vsoRole = null;        // 'host' | 'guest'
+    let vsoRoomCode = null;
+    let vsoOpponentName = null;
+    let vsoMatchStarted = false;
+    let vsoMyPresenceKey = null;
+    let vsoBroadcastTick = 0;
+    let vsoDisconnectTimer = null;
+
+    // Avoids 0/O/1/I - easy to misread out loud or over text to a friend.
+    const VSO_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    function generateRoomCode() {
+        let code = '';
+        for (let i = 0; i < 4; i++) code += VSO_CODE_CHARS[Math.floor(Math.random() * VSO_CODE_CHARS.length)];
+        return code;
+    }
+
+    function openVsOnlineLobby() {
+        if (!sbClient) { alert('Online play is unavailable right now.'); return; }
+        document.getElementById('vso-choice').style.display = 'flex';
+        document.getElementById('vso-join').style.display = 'none';
+        document.getElementById('vso-waiting').style.display = 'none';
+        document.getElementById('vsonline-modal').style.display = 'flex';
+    }
+
+    function vsOnlineShowJoin() {
+        document.getElementById('vso-choice').style.display = 'none';
+        document.getElementById('vso-join').style.display = 'flex';
+        setTimeout(() => document.getElementById('vso-code-input').focus(), 50);
+    }
+
+    function vsOnlineCreateRoom() {
+        const code = generateRoomCode();
+        document.getElementById('vso-choice').style.display = 'none';
+        document.getElementById('vso-join').style.display = 'none';
+        document.getElementById('vso-waiting').style.display = 'flex';
+        document.getElementById('vso-waiting-text').innerText = 'Share this code with your opponent:';
+        document.getElementById('vso-code-display').innerText = code;
+        document.getElementById('vso-status').innerText = 'Waiting for opponent...';
+        vsOnlineConnect(code, 'host');
+    }
+
+    function vsOnlineJoinRoom() {
+        const input = document.getElementById('vso-code-input');
+        const code = (input.value || '').trim().toUpperCase();
+        if (code.length !== 4) { input.focus(); return; }
+        document.getElementById('vso-choice').style.display = 'none';
+        document.getElementById('vso-join').style.display = 'none';
+        document.getElementById('vso-waiting').style.display = 'flex';
+        document.getElementById('vso-waiting-text').innerText = 'Room code:';
+        document.getElementById('vso-code-display').innerText = code;
+        document.getElementById('vso-status').innerText = 'Connecting...';
+        vsOnlineConnect(code, 'guest');
+    }
+
+    function vsOnlineConnect(code, role) {
+        vsoRole = role;
+        vsoRoomCode = code;
+        vsoOpponentName = null;
+        vsoMatchStarted = false;
+
+        vsoMyPresenceKey = getPlayerName() + '-' + Math.random().toString(36).slice(2, 8);
+        vsoChannel = sbClient.channel(`vsroom-${code}`, { config: { presence: { key: vsoMyPresenceKey } } });
+
+        vsoChannel.on('presence', { event: 'sync' }, vsOnlinePresenceSync);
+        vsoChannel.on('broadcast', { event: 'match_start' }, ({ payload }) => vsOnlineHandleMatchStart(payload));
+        // These three only ever fire once a match is actually live, but the
+        // listeners have to be registered before subscribe() either way.
+        vsoChannel.on('broadcast', { event: 'state' }, ({ payload }) => vsOnlineHandleState(payload));
+        vsoChannel.on('broadcast', { event: 'attack' }, ({ payload }) => vsOnlineHandleAttack(payload));
+        vsoChannel.on('broadcast', { event: 'game_over' }, () => vsOnlineHandleGameOver());
+        vsoChannel.on('presence', { event: 'leave' }, vsOnlinePresenceLeave);
+
+        vsoChannel.subscribe(status => {
+            if (status === 'SUBSCRIBED') {
+                vsoChannel.track({ name: getPlayerName() });
+                const statusEl = document.getElementById('vso-status');
+                if (statusEl) statusEl.innerText = 'Waiting for opponent...';
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                const statusEl = document.getElementById('vso-status');
+                if (statusEl) statusEl.innerText = 'Connection failed - try again.';
+            }
+        });
+    }
+
+    // Presence state is keyed by the random presence key each client picked
+    // for itself (vsoMyPresenceKey), not by display name - two players with
+    // the same name would otherwise be indistinguishable from "myself".
+    function vsOnlinePresenceSync() {
+        // A presence 'leave' can fire for a brief reconnect blip, not just a
+        // real quit (Realtime resubscribing, a tab backgrounding its socket
+        // for a moment, ...) - if the opponent's presence comes back before
+        // the grace timer below runs out, treat it as nothing happened.
+        if (vsoDisconnectTimer) { clearTimeout(vsoDisconnectTimer); vsoDisconnectTimer = null; }
+        if (!vsoChannel || vsoMatchStarted) return;
+        const state = vsoChannel.presenceState();
+        const otherKeys = Object.keys(state).filter(k => k !== vsoMyPresenceKey);
+        if (otherKeys.length < 1) return;
+
+        const opponentEntry = state[otherKeys[0]] && state[otherKeys[0]][0];
+        vsoOpponentName = opponentEntry ? opponentEntry.name : 'Opponent';
+
+        const statusEl = document.getElementById('vso-status');
+        if (statusEl) statusEl.innerText = `Found ${vsoOpponentName}! Starting...`;
+
+        // Only the host broadcasts the start signal - if both sides tried,
+        // a race between two syncs firing close together could send two
+        // different start timestamps and desync the countdown.
+        if (vsoRole === 'host') {
+            vsoMatchStarted = true;
+            const payload = { startAt: Date.now() + 3000, hostName: getPlayerName() };
+            vsoChannel.send({ type: 'broadcast', event: 'match_start', payload });
+            vsOnlineHandleMatchStart(payload);
+        }
+    }
+
+    function vsOnlineHandleMatchStart(payload) {
+        if (vsoMatchStarted && vsoRole === 'guest') return; // already queued
+        vsoMatchStarted = true;
+        if (vsoRole === 'guest') vsoOpponentName = payload.hostName;
+        const statusEl = document.getElementById('vso-status');
+        const delay = Math.max(0, payload.startAt - Date.now());
+        if (statusEl) statusEl.innerText = `Opponent found! Starting in ${Math.ceil(delay / 1000)}...`;
+        setTimeout(() => {
+            document.getElementById('vsonline-modal').style.display = 'none';
+            vsoBroadcastTick = 0;
+            startGame('vsonline');
+        }, delay);
+    }
+
+    // Cancelling from the lobby (never found a match) - just drop the
+    // connection. Leaving an in-progress match goes through
+    // vsOnlineTeardown() via backToMenu() instead, which also tells the
+    // opponent you left (see the leave-notice comment below).
+    function vsOnlineCancel() {
+        if (vsoChannel) { sbClient.removeChannel(vsoChannel); vsoChannel = null; }
+        vsoRole = null;
+        vsoRoomCode = null;
+        vsoMatchStarted = false;
+        if (vsoDisconnectTimer) { clearTimeout(vsoDisconnectTimer); vsoDisconnectTimer = null; }
+        document.getElementById('vsonline-modal').style.display = 'none';
+    }
+
+    // Called from backToMenu() whenever you leave an online match, win or
+    // lose or just bail - supabase-js fires its own presence 'leave' event
+    // to the other side automatically the moment this channel disconnects,
+    // which vsOnlinePresenceLeave below turns into "opponent disconnected"
+    // on their end if the match wasn't already over.
+    function vsOnlineTeardown() {
+        if (vsoChannel) { sbClient.removeChannel(vsoChannel); vsoChannel = null; }
+        vsoRole = null;
+        vsoRoomCode = null;
+        vsoOpponentName = null;
+        vsoMatchStarted = false;
+        if (vsoDisconnectTimer) { clearTimeout(vsoDisconnectTimer); vsoDisconnectTimer = null; }
+    }
+
+    // Fires on the OTHER client the moment this one's connection drops for
+    // ANY reason, including a brief reconnect blip that isn't a real quit -
+    // so this doesn't end the match immediately. It waits out a grace
+    // window first; vsOnlinePresenceSync cancels the pending timer above if
+    // the opponent's presence comes back before it fires. Only if they're
+    // still actually gone once the grace period elapses does this count as
+    // a real disconnect.
+    function vsOnlinePresenceLeave() {
+        if (gameMode !== 'vsonline' || matchResolved || vsoDisconnectTimer) return;
+        vsoDisconnectTimer = setTimeout(() => {
+            vsoDisconnectTimer = null;
+            if (gameMode !== 'vsonline' || matchResolved || !vsoChannel) return;
+            const state = vsoChannel.presenceState();
+            const otherKeys = Object.keys(state).filter(k => k !== vsoMyPresenceKey);
+            if (otherKeys.length < 1) {
+                matchResolved = true;
+                alert('Your opponent disconnected.');
+                backToMenu();
+            }
+        }, 6000);
+    }
+
+    // Reads the CURRENT local p1 and sends a full snapshot of everything
+    // the opponent's client needs to render the mirror board (see the
+    // module comment above) - called immediately after every lock
+    // (lockPiece) and periodically the rest of the time (stepGame).
+    function vsOnlineBroadcastState() {
+        const p = players[0];
+        if (!p || !vsoChannel) return;
+        vsoChannel.send({
+            type: 'broadcast',
+            event: 'state',
+            payload: {
+                playfield: p.playfield,
+                tetromino: p.tetromino ? {
+                    name: p.tetromino.name, matrix: p.tetromino.matrix,
+                    row: p.tetromino.row, col: p.tetromino.col
+                } : null,
+                heldPiece: p.heldPiece,
+                sequence: (p.sequence || []).slice(0, 5),
+                score: p.score, lines: p.lines, level: p.level,
+                combo: p.combo, b2b: p.b2b,
+                garbageQueueLen: p.garbageQueue.length,
+                inDanger: p.inDanger,
+                gameOver: p.gameOver
+            }
+        });
+    }
+
+    // Applies a received snapshot straight onto the mirror board (players[1]
+    // when gameMode is 'vsonline') and re-runs the normal draw/UI-refresh
+    // calls every other mode already uses after a real state change - no
+    // new rendering path, just feeding the existing one from the network
+    // instead of from local simulation.
+    function vsOnlineHandleState(payload) {
+        const p2 = players[1];
+        if (!p2 || !p2.isOnlineMirror) return;
+        p2.playfield = payload.playfield;
+        p2.tetromino = payload.tetromino;
+        p2.heldPiece = payload.heldPiece;
+        p2.sequence = payload.sequence || [];
+        p2.score = payload.score; p2.lines = payload.lines; p2.level = payload.level;
+        p2.combo = payload.combo; p2.b2b = payload.b2b;
+        p2.garbageQueue = new Array(payload.garbageQueueLen || 0).fill(0).map(() => ({ lines: 1, timer: 0 }));
+        p2.inDanger = payload.inDanger;
+        updateStatsUI(p2);
+        drawHold(p2);
+        drawNext(p2);
+        if (payload.gameOver && !p2.gameOver) triggerKO(p2);
+    }
+
+    // The opponent's real board actually takes the damage here - what we
+    // did to the local mirror in lockPiece (garbageQueue push, projectile
+    // visual, board slam) was only ever this client's own feedback.
+    function vsOnlineHandleAttack(payload) {
+        const p1 = players[0];
+        const p2 = players[1];
+        if (!p1 || p1.gameOver) return;
+        p1.garbageQueue.push({ lines: payload.damage, timer: 0 });
+        if (p2) {
+            spawnProjectiles(p2, p1, payload.damage);
+            if (payload.releaseColor) triggerBoardSlam(p1, payload.releaseColor);
+        }
+    }
+
+    function vsOnlineSendGameOver() {
+        if (vsoChannel) vsoChannel.send({ type: 'broadcast', event: 'game_over', payload: {} });
+    }
+
+    // The opponent told us THEY topped out - run the exact same K.O. visual
+    // (explosion, fall-apart, the eventual "YOU WIN!" triggerGameOver) on
+    // the mirror board that a real local bot topping out would get, see the
+    // gameMode === 'vsonline' branch inside triggerGameOver's own dispatch.
+    function vsOnlineHandleGameOver() {
+        const p2 = players[1];
+        if (!p2 || p2.gameOver) return;
+        triggerKO(p2);
     }
 
     function saveSettings() {
@@ -9099,6 +9506,7 @@
         { mode: 'survival', label: 'Survival', tag: 'Endure', color: '#5be8ff' },
         { mode: 'puzzles', label: 'Puzzles', tag: 'Logic', color: '#e040fb' },
         { mode: 'vs', label: 'VS Bot', tag: 'Battle', color: '#ff3366' },
+        { mode: 'vsonline', label: 'VS Online', tag: 'Live', color: '#ff3366' },
         { mode: 'botvsbot', label: 'Spectate', tag: 'Watch', color: '#ff3366' },
         { mode: 'endurance', label: 'Endurance', tag: 'Wave', color: '#ff3366' },
         { mode: 'puyo', label: 'Puyo Puyo', tag: 'Beta', color: '#ff66cc' },
@@ -9510,6 +9918,7 @@
                     else if (mode === 'tutorial') { /* handled by the track picker buttons */ }
                     else if (mode === 'survival') { /* handled by the start-altitude picker buttons */ }
                     else if (mode === 'boss') { /* handled by the difficulty picker buttons */ }
+                    else if (mode === 'vsonline') openVsOnlineLobby();
                     else startGame(mode);
                 });
             });
@@ -9638,6 +10047,12 @@
     })();
 
     document.addEventListener('keydown', event => {
+        // Typing into a text field (the VS Online room code, a name prompt,
+        // ...) should never also drive the mode carousel behind it - arrow
+        // keys and Enter were leaking through and spinning the background/
+        // selection while someone was just trying to type a code.
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
         const stage = document.getElementById('play-stage');
         if (!stage || !stage.classList.contains('active')) return;
         const onBotMode = isBotMode(modeDeck[selectedModeIndex] && modeDeck[selectedModeIndex].mode);
@@ -9660,6 +10075,7 @@
             const mode = modeDeck[selectedModeIndex].mode;
             if (mode === 'puzzles') openPuzzleMenu();
             else if (mode === 'boss') { /* handled by the difficulty picker buttons */ }
+            else if (mode === 'vsonline') openVsOnlineLobby();
             else startGame(mode);
         }
     });
@@ -11601,6 +12017,11 @@
         }
         matchResolved = true;
 
+        // Tell the opponent right away, not after the 4s fall-apart
+        // animation below finishes - they should see "YOU WIN" the moment
+        // you actually topped out, not several seconds later.
+        if (gameMode === 'vsonline' && p.id === 0 && vsoChannel) vsOnlineSendGameOver();
+
         p.gameOver = true;
         p.showKO = true;
         p.inDanger = false;
@@ -11699,6 +12120,11 @@
                 }
             }
             else if (gameMode === 'boss' && p.id === 0) triggerGameOver("THE SENTINEL WINS");
+            else if (gameMode === 'vsonline' && p.id === 0) triggerGameOver("GAME OVER");
+            else if (gameMode === 'vsonline' && p.id === 1) {
+                celebrateVictory(winner);
+                setTimeout(() => triggerGameOver("YOU WIN!"), VICTORY_HOLD_MS);
+            }
             else if(p.id === 0 || gameMode !== 'vs') triggerGameOver(p.isBot ? "BOT K.O." : "GAME OVER");
             else if (p.id === 1) {
                 celebrateVictory(winner);
@@ -18774,7 +19200,7 @@
       if(baseScore > 0) p.score += baseScore;
 
       // OVERTIME LOGIC (VS modes only)
-      if (damage > 0 && (gameMode === 'vs' || gameMode === 'botvsbot')) {
+      if (damage > 0 && (gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'vsonline')) {
           let secs = p.playTimeMs / 1000;
           let multiplier = 1;
           if (secs >= 120) multiplier = 3;
@@ -18817,7 +19243,7 @@
             p.floatingTexts.push({ x: 160, y: 460, text: `-${totalBlocked}`, vy: 0, life: 1.6, color: '#00ffcc', size: 24, kind: 'blockDrop', t: 0, seed: Math.random() * Math.PI * 2 });
         }
 
-        if (damage > 0 && (gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'endurance')) {
+        if (damage > 0 && (gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'endurance' || gameMode === 'vsonline')) {
           let target = players.find(op => op.id !== p.id);
           if(target) {
              // Only the bot's output is scaled by the endurance curve; yours is not.
@@ -18825,6 +19251,17 @@
              target.garbageQueue.push({ lines: damage, timer: 0 });
              spawnProjectiles(p, target, damage);
              if (b2bReleaseAttack) triggerBoardSlam(target, b2bReleaseColor);
+             // Online: the mirror board (target) isn't actually simulated here,
+             // so hitting it is purely the local visual - the real damage has
+             // to be sent over the wire for the opponent's own real board to
+             // apply it to themselves.
+             if (gameMode === 'vsonline' && p.id === 0 && vsoChannel) {
+                 vsoChannel.send({
+                     type: 'broadcast',
+                     event: 'attack',
+                     payload: { damage, releaseColor: b2bReleaseAttack ? b2bReleaseColor : null }
+                 });
+             }
 
              if (willDischarge || wasElectric) {
                  p.dischargeTimer = 30;
@@ -18904,6 +19341,11 @@
           fadeAudio(mainBgm, 0, 3000);
           triggerGameOver("FINISHED!");
       }
+
+      // A lock is the moment the opponent's board actually visibly changes
+      // (new piece settled, lines maybe cleared) - send right away instead
+      // of waiting for the next periodic tick, so it reads as immediate.
+      if (gameMode === 'vsonline' && p.id === 0 && vsoChannel) vsOnlineBroadcastState();
     }
 
     function executeHold(p) {
@@ -20306,7 +20748,7 @@
       }
       ctx.globalAlpha = 1.0;
 
-      if ((gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'survival' || gameMode === 'endurance') && p.garbageQueue.length > 0) {
+      if ((gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'survival' || gameMode === 'endurance' || gameMode === 'vsonline') && p.garbageQueue.length > 0) {
         // The same B2B charge that glows around the board's edges (below)
         // bleeds a little onto the garbage queue strip too, subtly - a
         // long B2B run reads as "charged" everywhere near the stack, not
@@ -20524,7 +20966,7 @@
       }
 
       let op = players.find(x => x.id !== p.id);
-      if (op && op.b2b >= 2 && !p.gameOver && (gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'endurance')) {
+      if (op && op.b2b >= 2 && !p.gameOver && (gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'endurance' || gameMode === 'vsonline')) {
           let incomingDmg = op.b2b - 1;
 
           // Sits high on the board so it stays out of the way, and fades out as
@@ -20957,7 +21399,7 @@
         mt.innerText = formatTime(players[0].playTimeMs);
 
         // Only display overtime visual styles in VS or Spectate modes
-        if (gameMode === 'vs' || gameMode === 'botvsbot') {
+        if (gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'vsonline') {
             let mult = 1, tier = 0, otColor = '#ffcc00';
             if (secs >= 120) { mt.style.color = '#ff3366'; mt.style.textShadow = '0 0 15px #ff3366'; mult = 3; tier = 3; otColor = '#ff3366'; }
             else if (secs >= 90) { mt.style.color = '#ff6600'; mt.style.textShadow = '0 0 15px #ff6600'; mult = 2; tier = 2; otColor = '#ff6600'; }
@@ -20998,6 +21440,12 @@
       // kept your piece but lost gravity, soft drop, DAS and lock - it just hung
       // there until the result screen. You now keep playing normally until then.
       players.forEach(p => {
+        // The online mirror never runs its own simulation - it is a pure
+        // rendering stand-in for the real opponent, whose fields are
+        // overwritten wholesale by vsOnlineHandleState whenever a network
+        // update arrives. Running gravity/lock/garbage on it here too would
+        // fight that network state every tick instead of just displaying it.
+        if (p.isOnlineMirror) return;
         if (p.gameOver) {
           setDangerState(p, false);
           return;
@@ -21011,7 +21459,7 @@
            }
         }
         p.inDanger = (minRow <= 5);
-        const dangerActive = p.inDanger && (gameMode === 'survival' || gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'endurance');
+        const dangerActive = p.inDanger && (gameMode === 'survival' || gameMode === 'vs' || gameMode === 'botvsbot' || gameMode === 'endurance' || gameMode === 'vsonline');
         if (dangerActive && !p.wasInDanger && !p.isBot) sfx.dangerAlarm();
         p.wasInDanger = dangerActive;
         setDangerState(p, dangerActive);
@@ -21232,6 +21680,16 @@
             rollSurvivalGarbage(p);
         }
       });
+
+      // Periodic full-state broadcast so the opponent's board animates
+      // smoothly (falling piece, soft-dropping, DAS) between the immediate
+      // sends lockPiece already does on every lock - throttled to ~10/sec,
+      // plenty for a board that's otherwise just being looked at, not
+      // interacted with.
+      if (gameMode === 'vsonline' && vsoChannel && players[0]) {
+          vsoBroadcastTick++;
+          if (vsoBroadcastTick % 6 === 0) vsOnlineBroadcastState();
+      }
     }
 
     function gameLoop(timestamp) {
@@ -21988,26 +22446,45 @@
     });
 
     function startCountdown() {
+        // In a two-player layout the shared full-screen overlay below lands
+        // in the gap between the boards rather than clearly over either one
+        // - the per-board echoes (see .board-countdown) are what actually
+        // read as "GO" on both boards at once there.
+        const twoPlayer = document.body.classList.contains('two-player');
         let cd = document.getElementById('countdown-overlay');
-        cd.style.display = 'flex';
+        const p1cd = document.getElementById('p1-board-countdown');
+        const p2cd = document.getElementById('p2-board-countdown');
+        cd.style.display = twoPlayer ? 'none' : 'flex';
+        if (p1cd) p1cd.style.display = twoPlayer ? 'flex' : 'none';
+        if (p2cd) p2cd.style.display = twoPlayer ? 'flex' : 'none';
         let count = 3;
 
         showTrackPanel();
         document.getElementById('vinyl-disc').classList.remove('paused');
 
+        function setText(text) {
+            cd.innerText = text;
+            if (p1cd) p1cd.innerText = text;
+            if (p2cd) p2cd.innerText = text;
+        }
+
         function tick() {
             if (count > 0) {
-                cd.innerText = count;
+                setText(count);
                 playClick('triangle', 600, 600, 0.1);
                 count--;
                 setTimeout(tick, 1000);
             } else {
-                cd.innerText = "GO!";
+                setText("GO!");
                 playClick('triangle', 1200, 1200, 0.3);
                 isStarting = false;
                 stepAccumulator = 0;
                 lastFrameTime = performance.now();
-                setTimeout(() => { cd.style.display = 'none'; }, 1000);
+                setTimeout(() => {
+                    cd.style.display = 'none';
+                    if (p1cd) p1cd.style.display = 'none';
+                    if (p2cd) p2cd.style.display = 'none';
+                }, 1000);
             }
         }
         tick();
@@ -22046,6 +22523,7 @@
       else if(mode === 'survival') wipeColor = '#ffffff';
       else if(mode === 'puzzles') wipeColor = '#e040fb';
       else if(mode === 'vs') wipeColor = '#ff3366';
+      else if(mode === 'vsonline') wipeColor = '#ff3366';
       else if(mode === 'botvsbot') wipeColor = '#ff9900';
       else if(mode === 'endurance') wipeColor = '#00f2fe';
       else if(mode === 'puyo') wipeColor = '#ff66cc';
@@ -22081,7 +22559,7 @@
               setTouchPauseVisible(true);
               setTimeout(updateHintButton, 50);
 
-              const twoPlayer = (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance');
+              const twoPlayer = (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance' || mode === 'vsonline');
               document.getElementById('p2-area').style.display = twoPlayer ? 'flex' : 'none';
               document.body.classList.toggle('two-player', twoPlayer);
               document.body.classList.toggle('puyo-mode', mode === 'puyo');
@@ -22119,6 +22597,9 @@
                 enduranceWeather = 'sunny';
                 document.getElementById('p1-label').innerText = 'YOU';
                 document.getElementById('bot-label').innerText = `WAVE ${enduranceWave} (LVL ${enduranceLevel()})`;
+              } else if (mode === 'vsonline') {
+                document.getElementById('p1-label').innerText = 'YOU';
+                document.getElementById('bot-label').innerText = vsoOpponentName || 'OPPONENT';
               } else {
                 // Single-player modes no longer label the board "YOU" at all -
                 // with nobody else on screen it was never telling you
@@ -22195,7 +22676,7 @@
               }
 
               let mt = document.getElementById('match-timer');
-              if (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance') {
+              if (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance' || mode === 'vsonline') {
                   mt.style.display = 'block';
               } else {
                   mt.style.display = 'none';
@@ -22212,6 +22693,18 @@
 
               players.push(createPlayerState(0, 'p1', mode === 'botvsbot', startLvl));
               if (mode === 'vs' || mode === 'botvsbot' || mode === 'endurance') players.push(createPlayerState(1, 'p2', true, startLvl));
+              // The "opponent" board in online play isn't simulated at all -
+              // it's a pure render target whose fields get overwritten by
+              // whatever the real remote player last broadcast. isBot stays
+              // true so every existing isBot-gated UI branch (sfx silencing,
+              // hidden personal-best tracking, etc) treats it the same way
+              // it already treats a local bot, and isOnlineMirror is what
+              // actually tells stepGame to skip simulating it.
+              if (mode === 'vsonline') {
+                  const mirror = createPlayerState(1, 'p2', true, startLvl);
+                  mirror.isOnlineMirror = true;
+                  players.push(mirror);
+              }
 
               // A chosen checkpoint (see SURVIVAL_CHECKPOINTS) skips straight
               // to its wave by seeding lines cleared as (wave-1)*10, exactly
@@ -22441,6 +22934,7 @@
     }
 
     function backToMenu() {
+      if (gameMode === 'vsonline') vsOnlineTeardown();
       if(rAF) cancelAnimationFrame(rAF);
       clearHeldKeys();
 
