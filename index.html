@@ -3083,6 +3083,8 @@
       box-shadow: 0 0 28px rgba(255,255,255,0.2), 0 0 18px rgba(170,0,255,0.6);
     }
     .mode-card .mode-card-inner {
+      position: relative;
+      z-index: 2;
       width: 100%;
       height: 100%;
       padding: 16px 12px 12px;
@@ -3118,6 +3120,37 @@
     .mode-card-inner.pop-in {
       animation: modeCardPopIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
     }
+    /* Hover bounce - a gentle idle bob while the pointer rests on a card,
+       reads as "alive"/clickable. Targets .mode-card-inner (a plain child
+       transform) rather than .mode-card itself - the card's OWN transform
+       is the 3D carousel position set inline every update (see
+       updateModeCards()); animating that directly would fight/override it
+       the instant the pointer moved. */
+    @keyframes modeCardHoverBounce {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-9px); }
+    }
+    .play-stage.active .mode-card:hover .mode-card-inner {
+      animation: modeCardHoverBounce 0.7s ease-in-out infinite;
+    }
+    /* Click launch - spins and shoots straight up off the top of the
+       screen the instant a card is actually picked to start (see
+       launchModeFromCard). Unlike the hover bounce, this DOES override the
+       card's own inline 3D transform while it plays - deliberately, the
+       card is leaving the carousel for good, not just reacting in place.
+       Only ever applied to the centred/active card (launchModeFromCard
+       only fires once a card is already selected), so jumping straight to
+       a dead-centre 0% here never visibly snaps anything. */
+    @keyframes modeCardLaunch {
+      0%   { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+      35%  { transform: translate(-50%, -50%) scale(1.15) rotate(190deg); opacity: 1; filter: brightness(1.5); }
+      100% { transform: translate(-50%, -165vh) scale(0.45) rotate(540deg); opacity: 0; filter: brightness(2.2); }
+    }
+    .mode-card.mode-card-launch {
+      animation: modeCardLaunch 0.46s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+      z-index: 999 !important;
+      pointer-events: none;
+    }
     .mode-card .mode-name {
       font-size: 18px;
       font-weight: 900;
@@ -3130,6 +3163,68 @@
       letter-spacing: 2px;
       transition: color 0.4s ease;
     }
+
+    /* A real sense of thickness, not just a flat rounded rectangle -
+       a dark "edge" sitting behind/below the card (visible along its lower
+       and right sides, like a stack of material under the glass front) plus
+       a diagonal glossy sweep across the top. Both layered on top of the
+       existing 3D carousel transform rather than replacing anything - see
+       updateModeCards(), which only ever sets transform/opacity/colour
+       inline. */
+    .mode-card {
+      box-shadow:
+        0 0 20px rgba(0,0,0,0.35),
+        0 10px 0 -2px rgba(0,0,0,0.5),
+        4px 10px 14px rgba(0,0,0,0.45);
+    }
+    .mode-card.active {
+      box-shadow:
+        0 0 28px rgba(255,255,255,0.2), 0 0 18px rgba(170,0,255,0.6),
+        0 10px 0 -2px rgba(0,0,0,0.55),
+        5px 12px 18px rgba(0,0,0,0.5);
+    }
+    .mode-card-shine {
+      position: absolute;
+      top: 0; left: -60%;
+      width: 55%; height: 100%;
+      background: linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.22) 45%, rgba(255,255,255,0.05) 55%, transparent 100%);
+      transform: skewX(-18deg);
+      pointer-events: none;
+      transition: left 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 1;
+    }
+    .mode-card.active .mode-card-shine { left: 120%; }
+    /* Category cards read as "folders" - a right-facing chevron hints more
+       is behind them, and a slightly heavier, dashed-feeling border (via a
+       second inset box-shadow ring) separates them from a card that just
+       starts a game outright. */
+    .mode-card-category { border-width: 2.5px; }
+    .mode-card-chevron {
+      position: absolute;
+      right: 10px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 20px;
+      color: rgba(255,255,255,0.55);
+      text-shadow: 0 0 8px rgba(0,0,0,0.6);
+      z-index: 2;
+      transition: transform 0.3s ease, color 0.3s ease;
+    }
+    .mode-card-category.active .mode-card-chevron {
+      color: #fff;
+      transform: translateY(-50%) translateX(3px);
+    }
+    /* The back card - visually its own thing (muted, dashed border) so it
+       never reads as just another mode in the list. */
+    .mode-card-back {
+      background: rgba(20,20,26,0.75) !important;
+      border-style: dashed !important;
+    }
+    .mode-back-arrow {
+      font-size: 22px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 2px;
+    }
+    .mode-card-back.active .mode-back-arrow { color: #fff; }
 
     /* Renders the actual seven tetromino shapes through that theme's real
        drawThemeBlock() styling (glow, outline, texture, whatever it does),
@@ -3828,6 +3923,115 @@
       filter: blur(4px);
     }
 
+    /* MODE DOOR - the launch transition when a card is picked from the
+       GAME MODES carousel (see launchModeFromCard). A literal pair of
+       blast doors, not the diagonal colour-wipe every other transition
+       uses - they slide together to close while the card that was just
+       launched is still shooting up through them, the actual game sets up
+       completely hidden behind them, then they slide back open onto it.
+       Sits above #transition-wipe (which launchModeFromCard skips via
+       startGame's fastTransition - see its own comment) so the two never
+       show at once. Themed with the same --wipe-color each mode already
+       sets on #transition-wipe, so the door's colour identity still
+       matches whatever was actually picked. */
+    #mode-door {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 10500;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .mode-door-panel {
+      position: absolute; top: 0; bottom: 0;
+      width: 52%;
+      background:
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 4px),
+        linear-gradient(180deg, #23252f 0%, #15161d 45%, #0a0a0f 100%);
+      box-shadow: inset 0 0 70px rgba(0,0,0,0.7);
+      /* Only governs OPENING now (a plain slide back out once
+         .mode-door-closed is removed) - CLOSING is the dedicated bounce
+         keyframe below instead, which needs multiple stops a single
+         transition curve can't express. Slower than before and with a
+         touch of its own overshoot on the way out too, so open doesn't
+         feel like a harder cut than the close it's answering. */
+      transition: transform 0.7s cubic-bezier(0.5, 0, 0.1, 1.15);
+    }
+    /* CLOSING - slower, and slams past shut before settling, like real
+       momentum rather than just easing to a stop. Separate keyframes per
+       side since left/right travel in opposite directions; both share the
+       same timing. */
+    @keyframes modeDoorCloseLeft {
+      0%   { transform: translateX(-100%); }
+      58%  { transform: translateX(5%); }
+      74%  { transform: translateX(-3.5%); }
+      88%  { transform: translateX(1.5%); }
+      100% { transform: translateX(0); }
+    }
+    @keyframes modeDoorCloseRight {
+      0%   { transform: translateX(100%); }
+      58%  { transform: translateX(-5%); }
+      74%  { transform: translateX(3.5%); }
+      88%  { transform: translateX(-1.5%); }
+      100% { transform: translateX(0); }
+    }
+    #mode-door.mode-door-closed .mode-door-left {
+      animation: modeDoorCloseLeft 1.2s cubic-bezier(0.3, 0, 0.15, 1) forwards;
+    }
+    #mode-door.mode-door-closed .mode-door-right {
+      animation: modeDoorCloseRight 1.2s cubic-bezier(0.3, 0, 0.15, 1) forwards;
+    }
+    .mode-door-rivets {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(2.4px 2.4px at 50% 50%, rgba(255,255,255,0.3) 50%, transparent 51%);
+      background-size: 46px 64px;
+      opacity: 0.5;
+    }
+    .mode-door-stripes {
+      position: absolute; left: 0; right: 0; top: 48%; height: 18px;
+      margin-top: -9px;
+      background: repeating-linear-gradient(135deg, var(--wipe-color, #00ffcc) 0 12px, transparent 12px 24px);
+      opacity: 0.55;
+      box-shadow: 0 0 16px var(--wipe-color, #00ffcc);
+    }
+    /* The scanning light that runs top-to-bottom along the seam while shut
+       - the one bit of motion that keeps the door reading as "doing
+       something" during the hold between close and open, not just a
+       static wall. */
+    .mode-door-scan {
+      position: absolute; left: -2px; right: -2px; height: 40%;
+      background: linear-gradient(180deg, transparent, var(--wipe-color, #00ffcc) 50%, transparent);
+      opacity: 0;
+      filter: blur(2px);
+      transition: opacity 0.25s ease 1.1s;
+    }
+    #mode-door.mode-door-closed .mode-door-scan {
+      opacity: 0.6;
+      animation: modeDoorScan 1.1s ease-in-out 1.1s infinite alternate;
+    }
+    @keyframes modeDoorScan {
+      0%   { transform: translateY(-20%); }
+      100% { transform: translateY(220%); }
+    }
+    .mode-door-left { left: 0; transform: translateX(-100%); }
+    .mode-door-left .mode-door-stripes { right: 0; }
+    .mode-door-right { right: 0; transform: translateX(100%); }
+    .mode-door-right .mode-door-stripes { left: 0; }
+    /* The seam itself - a glowing line only visible once both panels have
+       actually met in the middle. */
+    .mode-door-seam {
+      position: absolute; top: 0; bottom: 0; left: 50%;
+      width: 4px; margin-left: -2px;
+      background: var(--wipe-color, #00ffcc);
+      box-shadow: 0 0 24px 6px var(--wipe-color, #00ffcc), 0 0 60px 14px var(--wipe-color, #00ffcc);
+      opacity: 0;
+      /* Timed to land right as the close bounce actually settles (see
+         modeDoorCloseLeft/Right, 1.2s), not partway through it - the seam
+         glowing in while the doors are still visibly slamming/bouncing
+         would read as the door being shut before it actually is. */
+      transition: opacity 0.25s ease 1.1s;
+    }
+    #mode-door.mode-door-closed .mode-door-seam { opacity: 1; }
+
     #mini-toast {
       position: fixed;
       top: 70px;
@@ -3897,10 +4101,13 @@
       background: #00ffcc;
       box-shadow: 0 0 6px #00ffcc;
     }
-    /* VS Online's FINISH / score / MATCH POINT / WINNER!/LOSER banner -
-       dead centre of the real viewport, never anchored to a board (see
-       vsOnlineStartFinishSequence). A slow opacity fade, not a snap, to
-       read as deliberate rather than another quick flash. */
+    /* VS Online's score / MATCH POINT / WINNER!/LOSER banner - dead centre
+       of the real viewport, never anchored to a board (see
+       vsOnlineStartFinishSequence). FINISH itself no longer uses this - it
+       shows instantly per-board instead (see vsOnlineShowBoardFinish) - but
+       .banner-finish stays defined since WINNER!/LOSER shares its colour.
+       A slow opacity fade, not a snap, to read as deliberate rather than
+       another quick flash. */
     #vso-center-banner {
       display: none;
       position: fixed;
@@ -3922,6 +4129,54 @@
     }
     #vso-center-banner.banner-loser {
       font-size: min(14vw, 120px); color: #5be8ff; text-shadow: 0 0 60px #5be8ff, 0 0 16px #5be8ff;
+    }
+    /* WINNER!/LOSER get a real punch instead of riding the plain opacity
+       fade every other banner on this element uses - a CSS animation takes
+       priority over the base element's opacity transition for the same
+       property, so this cleanly overrides it only for these two banners
+       while FINISH/score/MATCH POINT keep the plain fade. */
+    @keyframes vsoResultBounceIn {
+      0%   { transform: scale(0.4) rotate(-6deg); opacity: 0; }
+      55%  { transform: scale(1.15) rotate(2deg); opacity: 1; }
+      80%  { transform: scale(0.95) rotate(-1deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    #vso-center-banner.banner-winner.show, #vso-center-banner.banner-loser.show {
+      animation: vsoResultBounceIn 0.6s cubic-bezier(0.17, 0.89, 0.32, 1.49) both;
+    }
+    /* The tab-switch sync-pause overlay (see vsOnlineUpdateSyncPause) - same
+       full-viewport slot as #vso-center-banner, shown/hidden with a plain
+       display toggle (not a replayed class) since it just needs to sit
+       there for however long the pause actually lasts, not play once. */
+    #vso-sync-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      flex-direction: column;
+      gap: 14px;
+      justify-content: center;
+      align-items: center;
+      background: rgba(5,6,10,0.72);
+      backdrop-filter: blur(3px);
+      z-index: 480;
+      pointer-events: none;
+    }
+    .vso-sync-spinner {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 3px solid rgba(91,232,255,0.25);
+      border-top-color: #5be8ff;
+      animation: vsoSyncSpin 0.9s linear infinite;
+    }
+    @keyframes vsoSyncSpin { to { transform: rotate(360deg); } }
+    .vso-sync-text {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-align: center;
+      padding: 0 24px;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
     }
     #vso-center-banner.banner-score {
       font-size: min(8vw, 64px); color: #fff; text-shadow: 0 0 30px rgba(255,255,255,0.6);
@@ -3979,6 +4234,22 @@
     }
     .board-result-label.result-winner { color: #ffe600; text-shadow: 0 0 30px #ffe600, 0 0 10px #ffe600; }
     .board-result-label.result-loser { color: #5be8ff; text-shadow: 0 0 30px #5be8ff, 0 0 10px #5be8ff; }
+    /* FINISH (see vsOnlineShowBoardFinish) plops in from the OUTER edge of
+       whichever board it's on - p1 from the left, p2 from the right - so it
+       reads as arriving onto that specific board rather than just fading
+       into place. display is owned entirely by this class now (not JS
+       inline styles), so adding/removing it is what shows and hides it. */
+    @keyframes boardFinishSlideIn {
+      0%   { transform: translateX(var(--finish-slide-from, -70px)) scale(0.85); opacity: 0; }
+      65%  { transform: translateX(6px) scale(1.04); opacity: 1; }
+      100% { transform: translateX(0) scale(1); opacity: 1; }
+    }
+    .board-result-label.show {
+      display: flex;
+      animation: boardFinishSlideIn 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    }
+    #p1-result-label.show { --finish-slide-from: -70px; }
+    #p2-result-label.show { --finish-slide-from: 70px; }
     .vso-format-btn.on { border-color: #ffe600; color: #ffe600; background: rgba(255,230,0,0.12); }
     .vso-finish-score {
       display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -3988,6 +4259,113 @@
     .vso-score-nums { color: #fff; font-size: 30px; font-weight: 900; letter-spacing: 3px; }
     @keyframes vsoScorePulse { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
     .vso-score-pulse .vso-score-nums { animation: vsoScorePulse 0.4s ease-out; }
+
+    /* VS Online finish screen's head-to-head stat comparison (see
+       vsOnlineRenderFinishStats) - YOU always blue, the opponent always
+       red, same colour language as the per-board FINISH label and the
+       WINNER/LOSER banner use elsewhere. A 3-column grid (your number,
+       the row's label, their number) rather than two stacked columns, so
+       the two numbers for the same stat sit directly across from each
+       other and are easy to compare at a glance. */
+    .vso-finish-stats {
+      width: 100%;
+      margin: 4px 0 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .vfs-head {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 8px;
+      padding: 8px 12px 6px;
+    }
+    .vfs-head-you, .vfs-head-opp {
+      font-size: 13px; font-weight: 900; letter-spacing: 1px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .vfs-head-you { color: #5be8ff; text-align: left; text-shadow: 0 0 10px rgba(91,232,255,0.5); }
+    .vfs-head-opp { color: #ff3366; text-align: right; text-shadow: 0 0 10px rgba(255,51,102,0.5); }
+    .vfs-head-mid { width: 1px; }
+    .vfs-section {
+      font-size: 10px; letter-spacing: 2px; color: #888; text-align: center;
+      padding: 6px 0 2px; text-transform: uppercase;
+    }
+    .vfs-row {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 8px;
+      padding: 3px 12px;
+    }
+    .vfs-you, .vfs-opp {
+      font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums;
+    }
+    .vfs-you { color: #5be8ff; text-align: left; }
+    .vfs-opp { color: #ff3366; text-align: right; }
+    .vfs-label { font-size: 11px; color: #999; text-align: center; letter-spacing: 0.5px; white-space: nowrap; }
+    /* The better of the two numbers in a row gets a brief highlight pulse
+       the moment the finish screen builds (see vsOnlineRenderFinishStats) -
+       a quiet "you had the edge here" without a loud new UI element. */
+    @keyframes vfsWinPulse { 0% { text-shadow: 0 0 2px currentColor; } 50% { text-shadow: 0 0 14px currentColor; } 100% { text-shadow: 0 0 2px currentColor; } }
+    .vfs-you.vfs-better, .vfs-opp.vfs-better { animation: vfsWinPulse 1.1s ease-out 1; }
+
+    /* SKILL TEST summary (see skillTestShowSummary) - green throughout,
+       matching the mode's own card colour. */
+    .skt-box {
+      border-color: #35e08a !important;
+      box-shadow: 0 0 30px rgba(53,224,138,0.4) !important;
+      width: 320px; max-width: 92vw;
+    }
+    .skt-title {
+      color: #35e08a; font-size: 26px; letter-spacing: 3px;
+      margin: 0 0 2px; text-align: center; text-shadow: 0 0 14px rgba(53,224,138,0.6);
+    }
+    .skt-subtitle { color: #999; font-size: 12px; text-align: center; margin-bottom: 14px; }
+    .skt-rows { width: 100%; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    /* Each round pops in on its own stagger, left to right through the
+       list - reads as the rounds being tallied up one after another
+       rather than the whole report just appearing at once. */
+    @keyframes sktRowIn {
+      0%   { opacity: 0; transform: translateX(-14px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    .skt-row {
+      display: grid; grid-template-columns: auto 1fr auto;
+      align-items: center; gap: 10px;
+      padding: 7px 12px;
+      border-radius: 6px;
+      background: rgba(53,224,138,0.06);
+      border: 1px solid rgba(53,224,138,0.18);
+      animation: sktRowIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    .skt-row:nth-child(1) { animation-delay: 0.05s; }
+    .skt-row:nth-child(2) { animation-delay: 0.2s; }
+    .skt-row:nth-child(3) { animation-delay: 0.35s; }
+    .skt-round { font-size: 11px; font-weight: 900; letter-spacing: 1px; color: #999; }
+    .skt-pps { font-size: 15px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+    .skt-pps span { font-size: 10px; color: #999; font-weight: 700; margin-left: 2px; }
+    .skt-time { font-size: 14px; font-weight: 900; color: #35e08a; text-align: right; font-variant-numeric: tabular-nums; }
+    .skt-avg-wrap { display: flex; gap: 10px; width: 100%; margin-bottom: 10px; }
+    .skt-avg {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 10px 4px; border-radius: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    }
+    .skt-avg-label { font-size: 10px; letter-spacing: 1px; color: #999; font-weight: 700; }
+    .skt-avg-value { font-size: 20px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+    .skt-tier-wrap {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-bottom: 10px; padding: 8px 0;
+    }
+    .skt-tier-label { font-size: 11px; letter-spacing: 1px; color: #999; font-weight: 700; }
+    .skt-tier { font-size: 20px; font-weight: 900; letter-spacing: 2px; animation: vsoResultBounceIn 0.6s cubic-bezier(0.17, 0.89, 0.32, 1.49) both; }
+    .skt-newbest {
+      align-items: center; justify-content: center;
+      color: #ffe600; font-size: 13px; font-weight: 900; letter-spacing: 1px;
+      text-shadow: 0 0 10px rgba(255,230,0,0.7);
+      margin-bottom: 4px;
+      animation: newBestPulse 1.2s ease-in-out infinite;
+    }
+    .skt-prevbest { color: #999; font-size: 11px; text-align: center; min-height: 14px; }
 
     /* TUTORIAL WALK - a ghost mentor talking you through Tutorial mode,
        plus a running checklist of the whole track. Brown/tan throughout to
@@ -4257,7 +4635,7 @@
 
     /* GLOBAL LEADERBOARD - same modal pattern as the tutorial box, cyan
        instead of red so it reads as "records/stats" not "help". */
-    #leaderboard-modal, #name-prompt-modal, #vso-finish-modal, #account-modal, #welcome-modal {
+    #leaderboard-modal, #name-prompt-modal, #vso-finish-modal, #account-modal, #welcome-modal, #skilltest-modal {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(10, 10, 16, 0.95); backdrop-filter: blur(8px);
       z-index: 2000; display: flex; flex-direction: column;
@@ -4565,6 +4943,61 @@
       position: absolute; inset: 0;
       background: radial-gradient(circle at 34% 30%, transparent 40%, rgba(0,0,0,0.5) 78%, rgba(0,0,0,0.78) 100%);
     }
+    /* Signal pings - rings expanding outward from the globe, reading as a
+       broadcast/connection going out, which is the one thing this specific
+       scene (online play) is actually about that the rest of the galaxy
+       backdrop doesn't already say on its own. */
+    .vso-signal-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(91,232,255,0.8);
+      opacity: 0;
+      animation: vso-signal-ping 3.2s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+    }
+    .vso-signal-ring.vso-sig-2 { animation-delay: 1.6s; border-color: rgba(255,51,102,0.7); }
+    @keyframes vso-signal-ping {
+      0%   { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(2.3); opacity: 0; }
+    }
+    /* A second, smaller, differently-coloured world far across the scene -
+       a satellite/moon at this distance wasn't enough to read as "you are
+       both out here together", a second actual planet is. Drifts on its
+       own slow arc, independent of the galaxy haze's own drift. */
+    .vso-distant-planet {
+      position: absolute;
+      bottom: 10%; right: 9%;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 32% 30%, #ff9ec4, #ff3366 65%, #7a0d28 100%);
+      box-shadow: 0 0 14px rgba(255,51,102,0.5), inset -4px -3px 6px rgba(0,0,0,0.5);
+      opacity: 0.75;
+      animation: vso-planet-drift 70s ease-in-out infinite alternate;
+    }
+    @keyframes vso-planet-drift {
+      0%   { transform: translate(0, 0); }
+      100% { transform: translate(22px, -14px); }
+    }
+    /* Satellites - tiny bright points tracing a wide elliptical orbit
+       around the Earth, each on its own radius/speed/delay so they never
+       line up. Pure transform animation (no layout properties touched) to
+       stay compositor-smooth alongside everything else already moving. */
+    .vso-satellite {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 4px; height: 4px;
+      margin: -2px 0 0 -2px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 6px 2px rgba(255,255,255,0.8);
+      animation: vso-satellite-orbit linear infinite;
+    }
+    .vso-sat-1 { animation-duration: 11s; }
+    .vso-sat-2 { animation-duration: 16s; animation-delay: -6s; }
+    @keyframes vso-satellite-orbit {
+      from { transform: rotate(0deg) translateX(min(22vw, 270px)) rotate(0deg) scaleY(0.45); }
+      to   { transform: rotate(360deg) translateX(min(22vw, 270px)) rotate(-360deg) scaleY(0.45); }
+    }
 
     .vso-online-close {
       position: absolute; top: 20px; right: 24px;
@@ -4830,9 +5263,18 @@
     #leaderboard-title { color: #00ffcc; font-size: 24px; margin: 0 0 18px; letter-spacing: 2px; text-align: center; }
     #leaderboard-list { width: 100%; }
     .lb-row {
+      position: relative;
       display: flex; align-items: center; gap: 10px;
       padding: 9px 10px; border-radius: 8px; margin-bottom: 6px;
       background: rgba(255,255,255,0.04);
+      overflow: hidden;
+      transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+    }
+    /* A little life on hover - every row, not just the medals, so the
+       whole board reads as responsive rather than a static table. */
+    .lb-row:not(.lb-row-empty):hover {
+      transform: translateX(3px) scale(1.015);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
     }
     .lb-row-empty { opacity: 0.5; }
     .lb-row-empty .lb-name, .lb-row-empty .lb-value { color: #666; font-weight: 400; }
@@ -4846,6 +5288,39 @@
     #leaderboard-list > .lb-row:nth-child(1), .lb-rows > .lb-row:nth-child(1) { background: rgba(255,214,0,0.12); }
     #leaderboard-list > .lb-row:nth-child(2), .lb-rows > .lb-row:nth-child(2) { background: rgba(200,200,220,0.10); }
     #leaderboard-list > .lb-row:nth-child(3), .lb-rows > .lb-row:nth-child(3) { background: rgba(205,127,50,0.12); }
+    /* Each row settles into place on its own stagger as the board loads
+       (see refreshGlobalLeaderboardList/refreshSurvivalLeaderboardList) -
+       the delay itself is set inline per-row, this just defines the motion. */
+    @keyframes lbRowPopIn {
+      0%   { opacity: 0; transform: translateX(-16px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    .lb-row-pop { animation: lbRowPopIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+    /* A filled top-3 row gets a real border glow in its own medal colour,
+       not just the tinted background every row in that slot already had -
+       an EMPTY placeholder stays plain (no medal, no glow - nothing to
+       celebrate yet). */
+    .lb-row-medal:nth-child(1) { border: 1px solid rgba(255,214,0,0.5); box-shadow: 0 0 14px rgba(255,214,0,0.25), inset 0 0 12px rgba(255,214,0,0.08); }
+    .lb-row-medal:nth-child(2) { border: 1px solid rgba(220,220,235,0.4); box-shadow: 0 0 12px rgba(200,200,220,0.2), inset 0 0 10px rgba(200,200,220,0.06); }
+    .lb-row-medal:nth-child(3) { border: 1px solid rgba(205,127,50,0.45); box-shadow: 0 0 12px rgba(205,127,50,0.22), inset 0 0 10px rgba(205,127,50,0.07); }
+    .lb-medal { font-size: 16px; display: inline-block; animation: lbMedalFloat 2.4s ease-in-out infinite; }
+    @keyframes lbMedalFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-2px) rotate(-6deg); } }
+    /* The #1 row's own slow diagonal shine sweep, looping - the one thing
+       that marks it out as THE top spot even at a glance, not just
+       "a gold-tinted row like the other two". */
+    .lb-shine {
+      position: absolute; top: 0; bottom: 0; left: -40%;
+      width: 30%;
+      background: linear-gradient(115deg, transparent, rgba(255,255,255,0.35) 50%, transparent);
+      transform: skewX(-20deg);
+      animation: lbShineSweep 3.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes lbShineSweep {
+      0%   { left: -40%; }
+      35%  { left: 120%; }
+      100% { left: 120%; }
+    }
     .lb-section-title {
       width: 100%; text-align: center; color: #5be8ff; font-weight: 900;
       font-size: 13px; letter-spacing: 2px; margin: 16px 0 6px;
@@ -5754,6 +6229,21 @@
 
   <canvas id="bg-layer"></canvas>
   <div id="transition-wipe"></div>
+  <!-- See the #mode-door CSS comment - the blast-door launch transition for
+       picking a card off the GAME MODES carousel (launchModeFromCard). -->
+  <div id="mode-door">
+    <div class="mode-door-panel mode-door-left">
+      <div class="mode-door-rivets"></div>
+      <div class="mode-door-stripes"></div>
+      <div class="mode-door-scan"></div>
+    </div>
+    <div class="mode-door-panel mode-door-right">
+      <div class="mode-door-rivets"></div>
+      <div class="mode-door-stripes"></div>
+      <div class="mode-door-scan"></div>
+    </div>
+    <div class="mode-door-seam"></div>
+  </div>
   <div id="countdown-overlay">3</div>
   <!-- The virtual mouse cursor a connected controller's left stick drives
        outside an actual match (see pollGamepad/moveGpCursor) - positioned
@@ -5762,6 +6252,13 @@
   <!-- VS Online's FINISH/score/MATCH POINT/WINNER!/LOSER banner - centred
        on the actual viewport (not a board), see vsOnlineStartFinishSequence. -->
   <div id="vso-center-banner"></div>
+  <!-- Shown to whichever player can actually see their screen while the
+       other's tab is backgrounded (see vsOnlineUpdateSyncPause) - both
+       boards are frozen the entire time this is up. -->
+  <div id="vso-sync-overlay">
+    <div class="vso-sync-spinner"></div>
+    <div class="vso-sync-text">Waiting to sync...</div>
+  </div>
 
   <!-- TUTORIAL WALK: a ghost talking you through Tutorial mode step by step,
        plus a running checklist of the whole track. Built/torn down by
@@ -5923,8 +6420,13 @@
       <div class="vso-shooting-star vso-ss-3"></div>
       <div class="vso-shooting-star vso-ss-4"></div>
       <div class="vso-shooting-star vso-ss-5"></div>
+      <div class="vso-shooting-star vso-ss-6" style="top:85%; left:70%; animation-duration:8.6s; animation-delay:2.2s;"></div>
+      <div class="vso-shooting-star vso-ss-7" style="top:5%; left:85%; animation-duration:6.8s; animation-delay:6.6s;"></div>
       <div class="vso-distant-moon"></div>
+      <div class="vso-distant-planet"></div>
       <div class="vso-earth-wrap">
+        <div class="vso-satellite vso-sat-1"></div>
+        <div class="vso-satellite vso-sat-2"></div>
         <div class="vso-earth-atmosphere"></div>
         <div class="vso-earth">
           <div class="vso-earth-latitude"></div>
@@ -5933,6 +6435,8 @@
           <div class="vso-earth-highlight"></div>
           <div class="vso-earth-shade"></div>
         </div>
+        <div class="vso-signal-ring"></div>
+        <div class="vso-signal-ring vso-sig-2"></div>
       </div>
     </div>
 
@@ -6057,14 +6561,40 @@
   <!-- VS ONLINE FINISH SCREEN - shown after the FINISH/WINNER-LOSER board
        sequence (see vsOnlineStartFinishSequence) plays out on both boards. -->
   <div id="vso-finish-modal" style="display: none;">
-    <div class="leaderboard-box" style="border-color:#ffe600; box-shadow: 0 0 30px rgba(255,230,0,0.4);">
+    <div class="leaderboard-box" style="border-color:#ffe600; box-shadow: 0 0 30px rgba(255,230,0,0.4); width: 320px; max-width: 92vw;">
       <h2 id="vso-finish-title" style="color:#ffe600; font-size: 26px; letter-spacing: 3px; margin: 0 0 14px; text-align:center;">FINISH</h2>
       <div id="vso-finish-score" class="vso-finish-score" style="display:none;"></div>
       <div id="vso-finish-matchpoint" style="display:none; color:#ff3366; font-size: 16px; font-weight:900; letter-spacing:2px; margin-bottom: 10px; text-shadow: 0 0 12px rgba(255,51,102,0.7);">MATCH POINT</div>
-      <div id="vso-finish-subtitle" style="color:#ccc; font-size: 14px; margin-bottom: 18px; text-align:center; min-height: 18px;"></div>
+      <div id="vso-finish-subtitle" style="color:#ccc; font-size: 14px; margin-bottom: 14px; text-align:center; min-height: 18px;"></div>
+      <!-- Head-to-head round/match stats - built fresh every time the
+           finish screen shows (see vsOnlineRenderFinishStats), not static
+           markup, since both players' numbers only exist at that moment. -->
+      <div id="vso-finish-stats" class="vso-finish-stats"></div>
       <button class="menu-btn" id="vso-finish-rematch-btn" style="width: 220px; margin-bottom: 10px;" onclick="vsOnlineRequestRematch()">REMATCH?</button>
       <div id="vso-finish-timer" style="display:none; color:#ff3366; font-size: 13px; font-weight:700; letter-spacing:1px; margin-bottom: 10px;"></div>
       <button class="menu-btn" style="width: 220px;" onclick="vsOnlineMainMenuFromFinish()">MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- SKILL TEST summary - built fresh by skillTestShowSummary() every time
+       all 3 rounds finish. -->
+  <div id="skilltest-modal" style="display: none;">
+    <div class="leaderboard-box skt-box">
+      <h2 class="skt-title">SKILL TEST</h2>
+      <div class="skt-subtitle">3 rounds of Ultra, averaged</div>
+      <div id="skilltest-rows" class="skt-rows"></div>
+      <div class="skt-avg-wrap">
+        <div class="skt-avg"><span class="skt-avg-label">AVG PPS</span><span class="skt-avg-value" id="skilltest-avg-pps">0.00</span></div>
+        <div class="skt-avg"><span class="skt-avg-label">AVG TIME</span><span class="skt-avg-value" id="skilltest-avg-time">0:00.00</span></div>
+      </div>
+      <div class="skt-tier-wrap">
+        <span class="skt-tier-label">YOUR TIER</span>
+        <span class="skt-tier" id="skilltest-tier">-</span>
+      </div>
+      <div id="skilltest-newbest" class="skt-newbest" style="display:none;">&#9733; NEW PERSONAL BEST &#9733;</div>
+      <div id="skilltest-prevbest" class="skt-prevbest"></div>
+      <button class="menu-btn" style="width: 220px; margin-top: 10px;" onclick="skillTestRetry()">RETRY</button>
+      <button class="menu-btn" style="width: 220px; margin-top: 10px;" onclick="skillTestToMenu()">MAIN MENU</button>
     </div>
   </div>
 
@@ -7465,9 +7995,87 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.157';
+    const GAME_VERSION = '1.165';
 
     const PATCH_NOTES = [
+      {
+        version: '1.165',
+        date: '11 Oct 2026',
+        title: 'The blast door actually slams now',
+        changes: [
+          { tag: 'change', text: '<b>The door closes a lot slower now (0.5s to 1.2s) and actually slams shut</b> instead of just easing to a stop - both panels overshoot past closed, bounce back out, then settle, like real momentum. The glowing seam and the scanning light inside now wait for that whole bounce to actually finish before showing, instead of appearing while the doors are still visibly moving.' },
+          { tag: 'change', text: '<b>It also holds shut noticeably longer before opening again</b> (260ms to 900ms) - enough to actually read as "closed for a moment" instead of barely registering before it reopens.' }
+        ]
+      },
+      {
+        version: '1.164',
+        date: '11 Oct 2026',
+        title: 'Blast-door launch transition, Skill Test, and a flashier leaderboard',
+        changes: [
+          { tag: 'new', text: '<b>Hovering a mode card now bounces it gently in place</b>, and clicking/confirming one makes it spin and shoot straight up off the screen - the launch into the actual game.' },
+          { tag: 'new', text: '<b>A real blast-door transition</b> now plays right behind that launch: two detailed panels (rivets, hazard stripes, a glowing seam, a scanning light while shut) slide closed, the game sets up completely hidden behind them, then they slide back open onto it already running - themed in whatever colour the mode you picked already uses. Replaces the old plain colour-wipe for every way of starting a game from the menu (direct click, Enter, and every picker\'s own confirm button - bot level, survival altitude, tutorial track, boss difficulty).' },
+          { tag: 'new', text: '<b>SKILL TEST</b>, a new card in TRAIN: three Ultra (40-line) rounds back to back, no trip back to the menu between them. The report at the end shows PPS and time for each round, the average of both, and a tier (BEGINNER through ELITE) based on your average PPS. A new personal best is saved automatically and shows up as its own tab in ACCOUNT\'s PERSONAL BESTS.' },
+          { tag: 'change', text: '<b>The leaderboard is a lot more fun to look at now.</b> Each row settles into place on its own stagger as the board loads instead of just appearing, the top 3 get real medals (gold/silver/bronze) with a gentle float and a matching glow instead of just a tinted background, #1 gets a slow shine sweep across the whole row, and every row lifts slightly on hover.' }
+        ]
+      },
+      {
+        version: '1.163',
+        date: '11 Oct 2026',
+        title: 'Game Modes reorganized into categories, and flashier cards',
+        changes: [
+          { tag: 'change', text: '<b>GAME MODES is two levels now instead of one long deck of 11 cards.</b> The carousel opens on five categories - VERSUS (VS Bot, Spectate, Endurance), TRAIN (Endless, Ultra, Survival), ONLINE (opens straight into the existing online lobby, same as before), OTHER (Boss, Tutorial, Puzzles) and EXPERIMENTAL (Puyo Puyo) - picking one swaps the deck to its own cards with a BACK card to return. Escape also backs out a level while browsing.' },
+          { tag: 'change', text: '<b>Cards have real depth now</b> - a dark edge underneath so they read as sitting up off the background instead of flat rectangles, plus a glossy diagonal sweep across whichever card is centred.' },
+          { tag: 'new', text: '<b>The ONLINE category card is its own dark blue</b>, and the online lobby\'s background got busier - a second, reddish world drifting in the distance, two satellites tracing an orbit around the Earth, a couple more shooting stars, and signal-ping rings pulsing outward from the globe.' }
+        ]
+      },
+      {
+        version: '1.162',
+        date: '11 Oct 2026',
+        title: 'Tab-switch sync pause, faster rounds, and a redesigned finish screen',
+        changes: [
+          { tag: 'fix', text: '<b>Switching tabs mid-match no longer leaves your opponent stuck playing against a frozen board.</b> A backgrounded browser tab throttles its own game loop, so the player who switched away silently fell behind in real time while the other kept playing - which could mean a huge unfair advantage, or even a KO, before anyone noticed. Either side going to a different tab now pauses BOTH boards, with a "waiting to sync..." overlay shown to whoever is still looking at the screen, and resumes the instant both tabs are visible again.' },
+          { tag: 'change', text: '<b>FT3/FT5 no longer runs the full menu screen-wipe between rounds.</b> The next round now pops straight back in (with the same fade/scale the boards already drift away with, just in reverse) and goes right into the 3...2...1...GO countdown, instead of a ~2 second colour wipe sweeping across the screen first.' },
+          { tag: 'new', text: '<b>FINISH plops in from the side</b> of the winner\'s own board the instant the match is decided, instead of just appearing. WINNER!/LOSER now get a real bounce-in too, not just a fade.' },
+          { tag: 'new', text: '<b>The finish screen is redesigned</b> with a head-to-head stat comparison - your side in blue, the opponent\'s in red - showing PPS and APM for both the round that just ended and the whole match, plus total pieces and lines sent. The opponent\'s own live PPS/APM during a match is now real too (it used to just sit at 0.00 - their actual numbers never made it across the network before now).' }
+        ]
+      },
+      {
+        version: '1.161',
+        date: '10 Oct 2026',
+        title: 'Smoother VS Online sync',
+        changes: [
+          { tag: 'change', text: '<b>The opponent\'s board should feel noticeably less stuttery/laggy now.</b> Every sync update used to re-send the WHOLE locked-block grid whether it had changed or not - almost always it hadn\'t, since it only actually changes on a lock/line-clear, not on every tick the falling piece just moved down a row. It\'s now only included when it actually changed, which made most updates small enough to send more often (~30 times a second, up from ~20) for a smoother falling piece without sending any more data overall.' }
+        ]
+      },
+      {
+        version: '1.160',
+        date: '10 Oct 2026',
+        title: 'Self-healing sync: dropped attacks and garbage no longer vanish',
+        changes: [
+          { tag: 'fix', text: '<b>A dropped network message used to mean lost garbage, permanently.</b> VS Online attacks and Survival Co-op\'s shared garbage were both sent as one-shot "fire and forget" broadcasts with no way to recover if one ever got dropped - which is exactly what real desyncs (boards disagreeing on damage/lines) actually were. Both sides now also carry a running cumulative total on every regular sync broadcast; if that total is ever ahead of what was actually applied, the gap is the missing damage and it gets applied automatically on the very next sync instead of being lost for the rest of the match.' },
+          { tag: 'change', text: 'The instant, responsive feel of landing an attack or a garbage chunk firing is unchanged - this only changes what happens on the rare broadcast that never arrives.' }
+        ]
+      },
+      {
+        version: '1.159',
+        date: '10 Oct 2026',
+        title: 'VS Online\'s finish screen: a real cursor, instant FINISH, and an honest rematch expiry',
+        changes: [
+          { tag: 'fix', text: '<b>The cursor was invisible on VS Online\'s finish screen</b>, making REMATCH almost impossible to actually click. It was only ever un-hidden through the generic results-screen flow, which VS Online\'s ending never goes through - it now stays visible through the whole sequence, same as it already did for a connected controller.' },
+          { tag: 'fix', text: '<b>Clicking anywhere on the finish screen restarted the main menu\'s music underneath you.</b> A global "unlock audio" click listener was restarting it the moment you clicked REMATCH, since nothing told it a match was still technically in progress. It now stays off until you\'re actually back at the menu.' },
+          { tag: 'change', text: '<b>FINISH now appears instantly on the winner\'s own board</b> the moment the match is actually decided, not centred on the screen ~1.7s later. The knockout explosion still plays out on the loser\'s board exactly as before.' },
+          { tag: 'new', text: '<b>If your opponent leaves while you\'re waiting on a rematch, REMATCH now strikes itself out and says MATCH EXPIRED</b> instead of silently dumping you back at the main menu - you can still look at your score and leave on your own terms.' },
+          { tag: 'change', text: 'Clicking REMATCH already said WAITING FOR OPPONENT... and already expired itself after a 10s countdown if they never responded - both confirmed still working correctly alongside the fixes above.' }
+        ]
+      },
+      {
+        version: '1.158',
+        date: '10 Oct 2026',
+        title: 'Fixed Q/E stealing keystrokes from text fields',
+        changes: [
+          { tag: 'fix', text: '<b>Typing certain letters (like E) in a text field on the main menu - a room code, a name prompt - could get swallowed.</b> The main menu\'s Q/E shortcuts for Music/Settings were listening globally, so typing those letters anywhere flipped the menu instead of typing the character. They now ignore keystrokes while a text field is focused.' }
+        ]
+      },
       {
         version: '1.157',
         date: '10 Oct 2026',
@@ -9951,6 +10559,16 @@
     const BESTS_KEY = 'tetrainerBests';
     let personalBests = {};
 
+    // SKILL TEST - three Ultra (40-line sprint) runs back to back, no trip
+    // back to the menu between them. skilltestFinishRound (hooked into the
+    // same 40-line completion check sprint already has) intercepts each
+    // round BEFORE the generic triggerGameOver results screen ever runs,
+    // so the 3 rounds never show sprint's own per-run report card - only
+    // the final skilltestShowSummary does, once all three are in.
+    let skillTestActive = false;
+    let skillTestRound = 0;
+    let skillTestResults = [];
+
     // LIFETIME STATS - cumulative across every real run, never reset by a
     // single game the way personalBests entries can be beaten/replaced.
     // totalPieces/totalPlayMs/totalDamage are the running totals the AVG
@@ -10288,17 +10906,19 @@
         // Always 10 rows - real entries first, then empty placeholder slots
         // for whatever's left, so "the top 10" reads as a fixed-size board
         // waiting to be filled rather than a list that grows one row at a time.
+        const MEDALS = ['&#129351;', '&#129352;', '&#129353;'];
         const filled = rows.map((r, i) => `
-            <div class="lb-row">
-              <span class="lb-rank">${i + 1}</span>
+            <div class="lb-row lb-row-pop${i < 3 ? ' lb-row-medal' : ''}" style="animation-delay:${(i * 0.045).toFixed(3)}s">
+              <span class="lb-rank">${i < 3 ? `<span class="lb-medal">${MEDALS[i]}</span>` : (i + 1)}</span>
               <span class="lb-name">${escapeHtml(r.player_name)}</span>
               <span class="lb-value">${escapeHtml(lbFormatValue(mode, r))}</span>
+              ${i === 0 ? '<span class="lb-shine"></span>' : ''}
             </div>
         `).join('');
         let placeholders = '';
         for (let i = rows.length; i < 10; i++) {
             placeholders += `
-            <div class="lb-row lb-row-empty">
+            <div class="lb-row lb-row-empty lb-row-pop" style="animation-delay:${(i * 0.045).toFixed(3)}s">
               <span class="lb-rank">${i + 1}</span>
               <span class="lb-name">-</span>
               <span class="lb-value">-</span>
@@ -10330,19 +10950,21 @@
 
         if (modal.style.display === 'none' || lbState.mode !== 'survival' || lbState.variant !== variant) return;
 
+        const MEDALS = ['&#129351;', '&#129352;', '&#129353;'];
         list.innerHTML = categories.map((c, idx) => {
             const rows = results[idx];
             const filled = rows.map((r, i) => `
-                <div class="lb-row">
-                  <span class="lb-rank">${i + 1}</span>
+                <div class="lb-row lb-row-pop${i < 3 ? ' lb-row-medal' : ''}" style="animation-delay:${(i * 0.045).toFixed(3)}s">
+                  <span class="lb-rank">${i < 3 ? `<span class="lb-medal">${MEDALS[i]}</span>` : (i + 1)}</span>
                   <span class="lb-name">${escapeHtml(r.player_name)}</span>
                   <span class="lb-value">${escapeHtml(lbFormatValue('survival', r))}</span>
+                  ${i === 0 ? '<span class="lb-shine"></span>' : ''}
                 </div>
             `).join('');
             let placeholders = '';
             for (let i = rows.length; i < 10; i++) {
                 placeholders += `
-                <div class="lb-row lb-row-empty">
+                <div class="lb-row lb-row-empty lb-row-pop" style="animation-delay:${(i * 0.045).toFixed(3)}s">
                   <span class="lb-rank">${i + 1}</span>
                   <span class="lb-name">-</span>
                   <span class="lb-value">-</span>
@@ -10392,7 +11014,11 @@
     // the carousel, not always Endless - the mode dropdown inside the modal
     // can still switch from there, this just fixes where it starts.
     function openLeaderboardMenu() {
-        const mode = (modeDeck[selectedModeIndex] && modeDeck[selectedModeIndex].mode) || 'endless';
+        // A category card (or the __back card) isn't a real playable mode -
+        // falls back to Endless exactly like having nothing selected yet
+        // already did.
+        let mode = modeDeck[selectedModeIndex] && modeDeck[selectedModeIndex].mode;
+        if (!mode || mode === '__back' || mode.indexOf('cat_') === 0) mode = 'endless';
         const category = LB_CATEGORIES[mode] ? LB_CATEGORIES[mode][0].key : null;
         openLeaderboard(mode, category, getResultVariantLabel(mode));
     }
@@ -10591,6 +11217,7 @@
     function lifetimeBestModeLabel(baseKey) {
         if (baseKey === 'survivalAlt') return 'SURVIVAL (DISTANCE)';
         if (baseKey === 'survivalCombined') return 'SURVIVAL (COMBINED)';
+        if (baseKey === 'skilltest') return 'SKILL TEST';
         return lbModeDisplayName(baseKey);
     }
     function renderLifetimeStats() {
@@ -10771,11 +11398,18 @@
     // player. Attacks you land are computed locally (for your own instant
     // visual feedback against the mirror) AND sent as a separate 'attack'
     // event so the real damage actually lands on the opponent's real board
-    // on their end. This is simpler and far more robust than true lockstep
-    // (no shared RNG/seed to keep in sync), at the cost of the opponent's
-    // board being a close-but-not-frame-perfect replay of what they're
-    // actually doing - fine for a casual match, not built for tournament-
-    // grade netcode.
+    // on their end. That event is still fire-and-forget (no ack, no retry)
+    // for responsiveness, but it is no longer the only copy of the truth -
+    // a running cumulative total rides along on every regular 'state'
+    // broadcast too (see vsoMyAttackTotal/vsoOpponentAttackApplied), so a
+    // dropped 'attack' self-heals on the next snapshot instead of that
+    // damage being lost outright. Survival Co-op's shared garbage uses the
+    // exact same running-total pattern (coopMyGarbageTotal/
+    // coopAllyGarbageApplied). This is simpler and far more robust than
+    // true lockstep (no shared RNG/seed to keep in sync), at the cost of
+    // the opponent's board being a close-but-not-frame-perfect replay of
+    // what they're actually doing - fine for a casual match, not built for
+    // tournament-grade netcode.
     // ================================================================
     let vsoChannel = null;
     let vsoRole = null;        // 'host' | 'guest'
@@ -10786,11 +11420,74 @@
     let vsoBroadcastTick = 0;
     let vsoDisconnectTimer = null;
 
+    // Self-healing counters for garbage/attacks (see vsOnlineHandleAttack
+    // and the survivalCoop branch of vsOnlineHandleState). A one-shot
+    // 'attack'/garbageFired broadcast is fire-and-forget - if it's ever
+    // dropped (a network blip, a brief reconnect), the damage it carried
+    // used to just vanish with no way to notice, let alone recover. Each
+    // side now also tracks a running TOTAL of damage it has sent and damage
+    // it has actually applied; that total rides along on the periodic full
+    // state snapshot (which keeps arriving regardless), so if the running
+    // totals ever disagree, the gap is just the missing damage and gets
+    // applied silently on the very next snapshot instead of being lost for
+    // the rest of the match.
+    let vsoMyAttackTotal = 0;        // VS Online: cumulative damage I've sent
+    let vsoOpponentAttackApplied = 0; // VS Online: cumulative damage I've actually applied from them
+    let coopMyGarbageTotal = 0;       // Co-op: cumulative garbage I've fired
+    let coopAllyGarbageApplied = 0;   // Co-op: cumulative garbage I've actually applied from my ally
+
+    // The locked-block grid only actually changes at a lock/line-clear/
+    // garbage-settle - most periodic broadcast ticks in between are really
+    // just "the falling piece moved one row". Re-sending the whole grid on
+    // every one of those ticks anyway was most of the payload weight for
+    // no reason, which is what forced the broadcast rate to stay low
+    // enough to avoid flooding the channel in the first place. Comparing
+    // against the last-sent snapshot and omitting the grid when nothing
+    // changed (see vsOnlineBroadcastState) means most ticks now send just
+    // a few small fields - cheap enough to send noticeably more often for
+    // a smoother falling piece without sending any more actual data overall.
+    let vsoLastSentPlayfield = null;
+
+    // playfield is a plain OBJECT keyed by row number, not a real Array -
+    // SPAWN_ROW (negative) through 19, so the hidden buffer rows above the
+    // visible board can have negative keys, which a real Array can't index
+    // into the way this needs. Iterated by that same known row range
+    // rather than Array methods (.length/.map don't apply to it).
+    function playfieldsEqual(a, b) {
+        if (a === b) return true;
+        if (!a || !b) return false;
+        for (let r = SPAWN_ROW; r < 20; r++) {
+            const ra = a[r], rb = b[r];
+            if (ra === rb) continue;
+            if (!ra || !rb || ra.length !== rb.length) return false;
+            for (let c = 0; c < ra.length; c++) if (ra[c] !== rb[c]) return false;
+        }
+        return true;
+    }
+
+    function clonePlayfield(pf) {
+        const copy = {};
+        for (let r = SPAWN_ROW; r < 20; r++) copy[r] = pf[r] ? pf[r].slice() : pf[r];
+        return copy;
+    }
+
     // ---- Match freeze + FINISH/WINNER-LOSER/rematch/series state ----
     // Set the instant either side's board tops out (see triggerKO) - stops
     // BOTH boards simulating (stepGame) and accepting input, so the winner
     // can't keep placing pieces after the match is already decided.
     let vsoMatchFrozen = false;
+    // Backgrounding a tab throttles/stalls that client's whole rAF loop
+    // (browsers do this to every hidden tab) - without this, the still-
+    // visible player just kept playing in real time while the other
+    // client's simulation silently stalled, so their mirror board on your
+    // screen looked frozen and you could rack up a huge, unfair real-time
+    // advantage before they even noticed they'd switched tabs. Either side
+    // going hidden now pauses BOTH boards (see vsOnlineUpdateSyncPause/the
+    // vsoSyncPaused gates in stepGame and the gameplay keydown handler)
+    // until both are visible again.
+    let vsoLocalTabHidden = false;
+    let vsoOpponentTabHidden = false;
+    let vsoSyncPaused = false;
     // "First to N wins" - picked by the host before CREATE ROOM, carried to
     // the guest in the match_start payload. 1 = a single game decides it.
     let vsoSeriesFormat = 1;
@@ -10800,6 +11497,14 @@
     // the guest always starts the same mode the host actually queued for.
     let vsoQueueMode = 'versus';
     let vsoSeriesWins = { me: 0, opponent: 0 };
+    // Head-to-head stats for the finish screen (see
+    // vsOnlineCaptureRoundStats/vsOnlineRenderFinishStats). vsoLastRoundStats
+    // is just the round that ended; vsoMatchStats accumulates pieces/damage/
+    // time across every round of the CURRENT series (reset alongside
+    // vsoSeriesWins - a brand new series starts both at zero, but a round
+    // within an existing FT3/5 series must keep adding to the same totals).
+    let vsoLastRoundStats = null;
+    let vsoMatchStats = null;
     let vsoShowingFinishScreen = false;
     // SURVIVAL CO-OP's equivalent of vsoShowingFinishScreen - true while the
     // generic TEAM WIPE results screen (not VS Online's own finish modal)
@@ -11145,6 +11850,7 @@
         vsoMatchStarted = false;
         vsoMatchFrozen = false;
         vsoSeriesWins = { me: 0, opponent: 0 };
+        vsoMatchStats = null; vsoLastRoundStats = null;
         vsoShowingFinishScreen = false;
         vsoRematchRequested = false;
         vsoOpponentRematchRequested = false;
@@ -11162,6 +11868,7 @@
         vsoChannel.on('broadcast', { event: 'rematch_request' }, () => vsOnlineHandleRematchRequest());
         vsoChannel.on('broadcast', { event: 'rematch_start' }, ({ payload }) => vsOnlineHandleRematchStart(payload));
         vsoChannel.on('broadcast', { event: 'next_round_start' }, ({ payload }) => vsOnlineHandleNextRoundStart(payload));
+        vsoChannel.on('broadcast', { event: 'tab_visibility' }, ({ payload }) => vsOnlineHandleTabVisibility(payload));
         vsoChannel.on('presence', { event: 'leave' }, vsOnlinePresenceLeave);
 
         vsoChannel.subscribe(status => {
@@ -11219,6 +11926,7 @@
             vsoQueueMode = payload.mode || 'versus';
         }
         vsoSeriesWins = { me: 0, opponent: 0 };
+        vsoMatchStats = null; vsoLastRoundStats = null;
         const statusEl = document.getElementById('vso-status');
         const delay = Math.max(0, payload.startAt - Date.now());
         if (statusEl) {
@@ -11365,6 +12073,29 @@
         if (el) { el.style.display = message ? 'block' : 'none'; el.innerText = message || ''; el.style.color = '#ff3366'; }
     }
 
+    // The opponent leaving outright (closed the tab, went back to their own
+    // main menu) while this screen is up, as opposed to just not clicking
+    // REMATCH in time above - there is no one left to start a rematch with,
+    // so instead of silently yanking this player back to the menu too (the
+    // old behaviour - see vsOnlinePresenceLeave), the button is struck
+    // through and disabled in place and the reason is spelled out, so
+    // whoever is still looking at their score can read it, then leave on
+    // their own via MAIN MENU whenever they're ready.
+    function vsOnlineRematchExpired() {
+        if (vsoRematchInterval) { clearInterval(vsoRematchInterval); vsoRematchInterval = null; }
+        vsoRematchRequested = false;
+        vsoOpponentRematchRequested = false;
+        const btn = document.getElementById('vso-finish-rematch-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'REMATCH?';
+            btn.style.textDecoration = 'line-through';
+            btn.style.opacity = '0.5';
+        }
+        const el = document.getElementById('vso-finish-timer');
+        if (el) { el.style.display = 'block'; el.innerText = 'MATCH EXPIRED - opponent left'; el.style.color = '#ff3366'; }
+    }
+
     // Only the host computes and broadcasts the shared start time - same
     // "one source of truth" reasoning as the original match_start.
     function vsOnlineConfirmRematch() {
@@ -11395,6 +12126,7 @@
             // the score starts back over at 0-0, unlike vsOnlineAutoAdvanceRound's
             // next_round_start, which deliberately leaves it alone.
             vsoSeriesWins = { me: 0, opponent: 0 };
+            vsoMatchStats = null; vsoLastRoundStats = null;
             startGame('vsonline');
         }, delay);
     }
@@ -11456,9 +12188,15 @@
         coopShowingResultsScreen = false;
         vsoRematchRequested = false;
         vsoOpponentRematchRequested = false;
+        vsoLocalTabHidden = false;
+        vsoOpponentTabHidden = false;
+        vsoSyncPaused = false;
+        const syncEl = document.getElementById('vso-sync-overlay');
+        if (syncEl) syncEl.style.display = 'none';
         if (vsoRematchInterval) { clearInterval(vsoRematchInterval); vsoRematchInterval = null; }
         const finishModal = document.getElementById('vso-finish-modal');
         if (finishModal) finishModal.style.display = 'none';
+        vsOnlineHideBoardFinishLabels();
         if (vsoDisconnectTimer) { clearTimeout(vsoDisconnectTimer); vsoDisconnectTimer = null; }
     }
 
@@ -11469,8 +12207,9 @@
     // opponent's presence comes back before it fires. Only if they're still
     // actually gone once the grace period elapses does this count as a real
     // disconnect - covers both a drop mid-match AND one while waiting on
-    // the finish screen for a rematch (which "blanks out" back to the main
-    // menu instead of hanging on a rematch that can never arrive).
+    // the finish screen for a rematch (which strikes REMATCH out in place -
+    // see vsOnlineRematchExpired - instead of yanking this player back to
+    // the menu over a rematch that can never arrive).
     function vsOnlinePresenceLeave() {
         if ((gameMode !== 'vsonline' && gameMode !== 'survivalCoop') || vsoDisconnectTimer) return;
         vsoDisconnectTimer = setTimeout(() => {
@@ -11487,15 +12226,70 @@
                 // coopPlayAgainAllyGone).
                 coopPlayAgainAllyGone();
             } else if (vsoShowingFinishScreen) {
-                // No alert here on purpose - it just blanks straight back to
-                // the menu, same as the rematch countdown expiring does.
-                backToMenu();
+                vsOnlineRematchExpired();
             } else if (!matchResolved) {
                 matchResolved = true;
                 alert(gameMode === 'survivalCoop' ? 'Your ally disconnected.' : 'Your opponent disconnected.');
                 backToMenu();
             }
         }, 12000);
+    }
+
+    // Fires on document.hidden changing (see the visibilitychange listener
+    // further down) while a VS Online/Co-op match is actually live - tells
+    // the opponent so they can pause and wait instead of silently racing
+    // ahead (see the module comment on vsoLocalTabHidden). Deliberately
+    // does nothing during the countdown, the frozen ending sequence, or
+    // either results screen - those already stop/account for play on their
+    // own, and broadcasting a tab-switch into the middle of one would just
+    // be noise (or, worse, could re-trigger a pause state nothing is
+    // listening for).
+    function vsOnlineHandleLocalVisibilityChange() {
+        if ((gameMode !== 'vsonline' && gameMode !== 'survivalCoop') || !vsoChannel) return;
+        if (!vsoMatchStarted || vsoMatchFrozen || isStarting || isPaused) return;
+        if (vsoShowingFinishScreen || coopShowingResultsScreen) return;
+        const hidden = document.hidden;
+        if (hidden === vsoLocalTabHidden) return;
+        vsoLocalTabHidden = hidden;
+        vsoChannel.send({ type: 'broadcast', event: 'tab_visibility', payload: { hidden } });
+        vsOnlineUpdateSyncPause();
+    }
+
+    function vsOnlineHandleTabVisibility(payload) {
+        vsoOpponentTabHidden = !!(payload && payload.hidden);
+        vsOnlineUpdateSyncPause();
+    }
+
+    // The single source of truth for vsoSyncPaused (gates stepGame and the
+    // gameplay keydown handler - see their own checks) - either side being
+    // hidden pauses both boards, so a backgrounded tab can never fall
+    // behind in real time, let alone top out, while nobody's watching.
+    function vsOnlineUpdateSyncPause() {
+        const wasPaused = vsoSyncPaused;
+        vsoSyncPaused = vsoLocalTabHidden || vsoOpponentTabHidden;
+        const el = document.getElementById('vso-sync-overlay');
+        if (el) {
+            // Only the side that can actually SEE their screen needs the
+            // message - showing it while this client's own tab is the
+            // hidden one would just mean it's sitting there for nobody.
+            if (vsoSyncPaused && !vsoLocalTabHidden) {
+                const textEl = el.querySelector('.vso-sync-text');
+                if (textEl) textEl.innerText = gameMode === 'survivalCoop'
+                    ? 'Your ally switched tabs - waiting to sync...'
+                    : 'Your opponent switched tabs - waiting to sync...';
+                el.style.display = 'flex';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+        // Resuming - avoid a huge accumulator catch-up jump the same way
+        // unpausing already does (see togglePause), rather than both
+        // boards suddenly fast-forwarding through however long the pause
+        // actually lasted.
+        if (wasPaused && !vsoSyncPaused) {
+            stepAccumulator = 0;
+            lastFrameTime = performance.now();
+        }
     }
 
     // Reads the CURRENT local p1 and sends a full snapshot of everything
@@ -11505,8 +12299,15 @@
     function vsOnlineBroadcastState() {
         const p = players[0];
         if (!p || !vsoChannel) return;
+        // Only actually included when it changed since the last broadcast
+        // (see playfieldsEqual/vsoLastSentPlayfield) - the receiving side
+        // just keeps whatever grid it already has when this is absent (see
+        // vsOnlineHandleState). A snapshot COPY, not the live array - p.playfield
+        // keeps mutating in place every frame, so comparing against a
+        // reference to the same array would always read as "unchanged".
+        const playfieldChanged = !playfieldsEqual(p.playfield, vsoLastSentPlayfield);
+        if (playfieldChanged) vsoLastSentPlayfield = clonePlayfield(p.playfield);
         const payload = {
-            playfield: p.playfield,
             tetromino: p.tetromino ? {
                 name: p.tetromino.name, matrix: p.tetromino.matrix,
                 row: p.tetromino.row, col: p.tetromino.col
@@ -11523,8 +12324,25 @@
             garbageQueue: p.garbageQueue,
             inDanger: p.inDanger,
             gameOver: p.gameOver,
-            theme: currentTheme
+            theme: currentTheme,
+            // Running total of damage I've sent, carried on EVERY state
+            // broadcast (not just when an attack actually fires) - lets a
+            // dropped one-shot 'attack' event self-heal on the next
+            // snapshot instead of vanishing. See vsOnlineHandleAttack/
+            // vsOnlineHandleState.
+            attackTotal: vsoMyAttackTotal,
+            // My own real PPS/APM inputs - the mirror board is never
+            // locally simulated (see the module header comment), so
+            // without these the opponent's APM/PPS display on MY screen
+            // just sits frozen at 0 the whole match. Raw accumulators, not
+            // the already-formatted numbers, so the receiver computes them
+            // with the exact same formula stepGame uses for its own board
+            // (see vsOnlineHandleState).
+            totalPieces: p.totalPieces,
+            totalDamage: p.totalDamage,
+            playTimeMs: p.playTimeMs
         };
+        if (playfieldChanged) payload.playfield = p.playfield;
         // SURVIVAL CO-OP - the ally's wave/garbage-dial readout (see
         // updateSurvivalHud) is driven entirely off these fields once they
         // land on the mirror in vsOnlineHandleState, since the mirror board
@@ -11538,10 +12356,10 @@
             // comment) - the ally sums this with their own to get a team
             // total, never the other way around.
             payload.survivalAltitudeM = survivalAltitudeM;
-            if (coopLastGarbageFired !== null) {
-                payload.garbageFired = coopLastGarbageFired;
-                coopLastGarbageFired = null;
-            }
+            // The guest derives everything it needs (including when a
+            // fresh chunk just fired) from this one running cumulative
+            // total - see the self-heal comment in vsOnlineHandleState.
+            payload.garbageTotal = coopMyGarbageTotal;
         }
         vsoChannel.send({ type: 'broadcast', event: 'state', payload });
     }
@@ -11554,7 +12372,11 @@
     function vsOnlineHandleState(payload) {
         const p2 = players[1];
         if (!p2 || !p2.isOnlineMirror) return;
-        p2.playfield = payload.playfield;
+        // Only sent when the locked-block grid actually changed since the
+        // last broadcast (see vsOnlineBroadcastState) - keep whatever grid
+        // we already have otherwise, instead of overwriting it with
+        // nothing every tick the piece just moved.
+        if (payload.playfield) p2.playfield = payload.playfield;
         p2.tetromino = payload.tetromino;
         p2.heldPiece = payload.heldPiece;
         p2.sequence = payload.sequence || [];
@@ -11563,6 +12385,23 @@
         p2.garbageQueue = payload.garbageQueue || [];
         p2.inDanger = payload.inDanger;
         p2.mirrorTheme = payload.theme;
+        // The opponent's own real PPS/APM inputs (see vsOnlineBroadcastState)
+        // - stashed on p2 so a round-end snapshot (vsOnlineCaptureRoundStats)
+        // can read their final numbers later, and used right here to drive
+        // their live PPS/APM display with the exact formula stepGame uses
+        // for the local board, since the mirror never runs that code itself.
+        if (payload.totalPieces !== undefined) {
+            p2.totalPieces = payload.totalPieces;
+            p2.totalDamage = payload.totalDamage;
+            p2.playTimeMs = payload.playTimeMs;
+            if (p2.playTimeMs > 0) {
+                const secs = p2.playTimeMs / 1000;
+                const ppsEl = document.getElementById(`${p2.prefix}-pps`);
+                if (ppsEl) ppsEl.innerText = (p2.totalPieces / secs).toFixed(4);
+                const apmEl = document.getElementById(`${p2.prefix}-apm`);
+                if (apmEl) apmEl.innerText = (p2.totalDamage / (secs / 60)).toFixed(2);
+            }
+        }
         updateStatsUI(p2);
         drawHold(p2);
         drawNext(p2);
@@ -11601,12 +12440,41 @@
                 if (p1 && hostOwnsClock) {
                     p1.survivalNext = payload.survivalNext;
                     p1.garbageTimer = payload.garbageTimer || 0;
-                    if (payload.garbageFired) {
-                        p1.garbageQueue.push({ lines: payload.garbageFired, timer: 0 });
-                        triggerSurvivalAttackPulse(p1, payload.garbageFired);
+                    // Driven entirely off the host's running cumulative
+                    // total (sent on every broadcast, not just the one
+                    // tick it changes on - see vsOnlineBroadcastState), not
+                    // the one-shot garbageFired field directly. A single
+                    // "are we behind the total?" check is naturally
+                    // self-healing: whether this particular broadcast is
+                    // the one garbage actually fired on, or a later one
+                    // catching up after an earlier broadcast got dropped,
+                    // the gap between the two totals IS the missing
+                    // garbage either way - no separate one-shot code path
+                    // to ever fall out of sync with this one.
+                    if (payload.garbageTotal !== undefined && payload.garbageTotal > coopAllyGarbageApplied) {
+                        const missing = payload.garbageTotal - coopAllyGarbageApplied;
+                        p1.garbageQueue.push({ lines: missing, timer: 0 });
+                        triggerSurvivalAttackPulse(p1, missing);
+                        coopAllyGarbageApplied = payload.garbageTotal;
                     }
                     updateSurvivalHud(p1);
                 }
+            }
+        }
+        // VS ONLINE self-heal: payload.attackTotal is the opponent's
+        // running cumulative damage SENT, carried on every state broadcast
+        // regardless of whether an 'attack' event just fired (see
+        // vsOnlineBroadcastState/vsOnlineHandleAttack). If it's ever ahead
+        // of what we've actually applied, a dropped 'attack' broadcast is
+        // the gap - apply the missing damage to our own real board now
+        // instead of it being lost for the rest of the match.
+        if (gameMode === 'vsonline' && payload.attackTotal !== undefined && payload.attackTotal > vsoOpponentAttackApplied) {
+            const p1 = players[0];
+            const missing = payload.attackTotal - vsoOpponentAttackApplied;
+            vsoOpponentAttackApplied = payload.attackTotal;
+            if (p1 && !p1.gameOver) {
+                p1.garbageQueue.push({ lines: missing, timer: 0 });
+                spawnProjectiles(p2, p1, missing);
             }
         }
         // SURVIVAL CO-OP: a broadcast saying "still down" can be in flight
@@ -11622,13 +12490,26 @@
     // The opponent's real board actually takes the damage here - what we
     // did to the local mirror in lockPiece (garbageQueue push, projectile
     // visual, board slam) was only ever this client's own feedback.
+    //
+    // Keyed off payload.myTotal (the sender's running cumulative total
+    // AFTER this hit), never off payload.damage directly, and always
+    // compared against vsoOpponentAttackApplied - the exact same check
+    // vsOnlineHandleState's periodic self-heal uses. That makes this
+    // idempotent: broadcast delivery order isn't guaranteed, so if the
+    // periodic snapshot already caught this damage up (because THIS
+    // message arrived late), myTotal is no longer ahead of what's already
+    // applied and this becomes a no-op instead of double-applying it.
     function vsOnlineHandleAttack(payload) {
         const p1 = players[0];
         const p2 = players[1];
+        const newTotal = payload.myTotal;
+        if (newTotal === undefined || newTotal <= vsoOpponentAttackApplied) return;
+        const amount = newTotal - vsoOpponentAttackApplied;
+        vsoOpponentAttackApplied = newTotal;
         if (!p1 || p1.gameOver) return;
-        p1.garbageQueue.push({ lines: payload.damage, timer: 0 });
+        p1.garbageQueue.push({ lines: amount, timer: 0 });
         if (p2) {
-            spawnProjectiles(p2, p1, payload.damage);
+            spawnProjectiles(p2, p1, amount);
             if (payload.releaseColor) triggerBoardSlam(p1, payload.releaseColor);
         }
     }
@@ -11649,9 +12530,10 @@
 
     // ================================================================
     // VS ONLINE FINISH SEQUENCE
-    // Slow and systematic, not a quick particle burst: both boards drift
-    // away into the distance, FINISH fades in dead-centre of the actual
-    // screen (not anchored to either board), then either the point is
+    // Slow and systematic, not a quick particle burst: FINISH appears
+    // instantly on the winner's own board the moment triggerKO decides it
+    // (see vsOnlineShowBoardFinish), then once it's had a moment to read,
+    // both boards drift away into the distance, then either the point is
     // simply counted and the next round starts on its own (FT3/FT5, series
     // not yet decided - no reconnecting, no manual rematch click needed),
     // or - only on the game that actually decides the series - WINNER!/
@@ -11680,49 +12562,99 @@
         setTimeout(() => { if (el && !el.classList.contains('show')) el.style.display = 'none'; }, 950);
     }
 
+    // FINISH shows instantly on the WINNING player's own board the moment
+    // triggerKO decides the match - not centred on the screen, and not
+    // delayed behind the loser's K.O. explosion, so the result reads right
+    // as it happens instead of a beat later. Reuses the per-board
+    // WINNER/LOSER label slot (.board-result-label) that already sits over
+    // each board for exactly this kind of overlay.
+    function vsOnlineShowBoardFinish(loserId) {
+        const el = document.getElementById(loserId === 0 ? 'p2-result-label' : 'p1-result-label');
+        if (!el) return;
+        el.innerText = 'FINISH';
+        el.className = 'board-result-label result-winner';
+        // Replays the slide-in animation (see boardFinishSlideIn) every
+        // time, the same remove/reflow/add pattern used elsewhere for
+        // one-shot CSS animations - className above already cleared any
+        // previous 'show', so this is also what actually displays it.
+        void el.offsetWidth;
+        el.classList.add('show');
+    }
+
+    function vsOnlineHideBoardFinishLabels() {
+        ['p1-result-label', 'p2-result-label'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('show');
+        });
+    }
+
+    // Snapshots both players' PPS/APM inputs for the round that JUST ended
+    // (p1/p2 still hold their final numbers at this point - nothing has
+    // reset for the next round yet) and folds them into the running match
+    // totals. Called exactly once per completed round, whether or not it
+    // decides the series - vsoLastRoundStats/vsoMatchStats are what
+    // vsOnlineRenderFinishStats reads once the series actually ends.
+    function vsOnlineCaptureRoundStats() {
+        const p1 = players[0], p2 = players[1];
+        const snap = p => {
+            const pieces = (p && p.totalPieces) || 0;
+            const damage = (p && p.totalDamage) || 0;
+            const timeMs = (p && p.playTimeMs) || 0;
+            const secs = timeMs / 1000;
+            return {
+                pieces, damage, timeMs,
+                pps: secs > 0 ? pieces / secs : 0,
+                apm: secs > 0 ? damage / (secs / 60) : 0
+            };
+        };
+        const meRound = snap(p1), oppRound = snap(p2);
+        vsoLastRoundStats = { me: meRound, opp: oppRound };
+        if (!vsoMatchStats) vsoMatchStats = { me: { pieces: 0, damage: 0, timeMs: 0 }, opp: { pieces: 0, damage: 0, timeMs: 0 } };
+        vsoMatchStats.me.pieces += meRound.pieces; vsoMatchStats.me.damage += meRound.damage; vsoMatchStats.me.timeMs += meRound.timeMs;
+        vsoMatchStats.opp.pieces += oppRound.pieces; vsoMatchStats.opp.damage += oppRound.damage; vsoMatchStats.opp.timeMs += oppRound.timeMs;
+    }
+
     // Called ~1.7s after triggerKO (see there) - the K.O. explosion/text has
-    // already had its moment by now. FINISH shows first, THEN the boards
-    // drift away once it's done reading - matches a real knockout: you see
-    // what happened, THEN the scene moves on.
+    // already had its moment by now, and FINISH has already been sitting on
+    // the winner's own board since the instant the loss happened (see
+    // vsOnlineShowBoardFinish). This just gives it a little longer to
+    // actually be read, then clears it and starts the boards drifting away.
     function vsOnlineStartFinishSequence(iWon) {
         const p1Area = document.getElementById('p1-area');
         const p2Area = document.getElementById('p2-area');
         playClick('triangle', 900, 300, 0.5, 0.08);
-
-        vsOnlineShowCenterBanner('FINISH', 'banner-finish');
+        vsOnlineCaptureRoundStats();
 
         setTimeout(() => {
-            vsOnlineHideCenterBanner();
+            vsOnlineHideBoardFinishLabels();
 
+            // Set only for this one drift-away moment (see the CSS
+            // comment on .vso-board-exit) - cleared again below the
+            // instant it's done, so it can never linger and slow down
+            // an unrelated transform/opacity change later.
+            [p1Area, p2Area].forEach(el => { if (el) el.style.transition = 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.8s ease'; });
+            [p1Area, p2Area].forEach(el => { if (el) el.classList.add('vso-board-exit'); });
+
+            // Give the boards time to actually drift away before anything
+            // covers the screen again - matches the 1.8s CSS transition.
             setTimeout(() => {
-                // Set only for this one drift-away moment (see the CSS
-                // comment on .vso-board-exit) - cleared again below the
-                // instant it's done, so it can never linger and slow down
-                // an unrelated transform/opacity change later.
-                [p1Area, p2Area].forEach(el => { if (el) el.style.transition = 'transform 1.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.8s ease'; });
-                [p1Area, p2Area].forEach(el => { if (el) el.classList.add('vso-board-exit'); });
+                if (iWon) vsoSeriesWins.me++; else vsoSeriesWins.opponent++;
+                const seriesDone = vsoSeriesWins.me >= vsoSeriesFormat || vsoSeriesWins.opponent >= vsoSeriesFormat;
 
-                // Give the boards time to actually drift away before anything
-                // covers the screen again - matches the 1.8s CSS transition.
-                setTimeout(() => {
-                    if (iWon) vsoSeriesWins.me++; else vsoSeriesWins.opponent++;
-                    const seriesDone = vsoSeriesWins.me >= vsoSeriesFormat || vsoSeriesWins.opponent >= vsoSeriesFormat;
-
-                    if (seriesDone) {
-                        vsOnlineShowCenterBanner(iWon ? 'WINNER!' : 'LOSER', iWon ? 'banner-winner' : 'banner-loser');
+                if (seriesDone) {
+                    vsOnlineShowCenterBanner(iWon ? 'WINNER!' : 'LOSER', iWon ? 'banner-winner' : 'banner-loser');
+                    setTimeout(() => {
+                        vsOnlineHideCenterBanner();
                         setTimeout(() => {
-                            vsOnlineHideCenterBanner();
-                            setTimeout(() => {
-                                [p1Area, p2Area].forEach(el => { if (el) { el.classList.remove('vso-board-exit'); el.style.transition = ''; } });
-                                vsOnlineShowFinishScreen(iWon);
-                            }, 950);
-                        }, 2200);
-                    } else {
-                        vsOnlineAutoAdvanceRound();
-                    }
-                }, 1800);
-            }, 500);
-        }, 1900);
+                            [p1Area, p2Area].forEach(el => { if (el) { el.classList.remove('vso-board-exit'); el.style.transition = ''; } });
+                            vsOnlineShowFinishScreen(iWon);
+                        }, 950);
+                    }, 2200);
+                } else {
+                    vsOnlineAutoAdvanceRound();
+                }
+            }, 1800);
+        }, 700);
     }
 
     // FT3/FT5, series not yet decided - just counts the point and moves
@@ -11757,11 +12689,26 @@
         setTimeout(() => {
             const p1Area = document.getElementById('p1-area');
             const p2Area = document.getElementById('p2-area');
-            [p1Area, p2Area].forEach(el => { if (el) { el.classList.remove('vso-board-exit'); el.style.transition = ''; } });
+            // Fades/scales back IN from the drifted-away exit state instead
+            // of snapping straight back to normal - the same transition
+            // vsOnlineStartFinishSequence uses for the opposite direction,
+            // set inline right before the removal that triggers it and
+            // cleared once it's done so it can never linger and slow down
+            // an unrelated transform change later (see the CSS comment on
+            // .vso-board-exit).
+            [p1Area, p2Area].forEach(el => { if (el) el.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease'; });
+            [p1Area, p2Area].forEach(el => { if (el) el.classList.remove('vso-board-exit'); });
+            setTimeout(() => {
+                [p1Area, p2Area].forEach(el => { if (el) el.style.transition = ''; });
+            }, 650);
             vsoBroadcastTick = 0;
             vsoMatchFrozen = false;
             matchResolved = false;
-            startGame('vsonline');
+            // fastTransition: skips the full-screen wipe ceremony - this is
+            // a round WITHIN an already-live series, the menu was never
+            // shown, so the next board should just pop back in (see the
+            // fade above) instead of a ~2s screen-wipe in between rounds.
+            startGame('vsonline', undefined, true);
         }, delay);
     }
 
@@ -11769,6 +12716,45 @@
     // vsOnlineStartFinishSequence) - REMATCH here starts a brand new
     // series from 0-0, which is why it still needs both players to
     // confirm, unlike every round within a series.
+    // Builds the YOU(blue)/OPPONENT(red) head-to-head comparison table from
+    // vsoLastRoundStats (just the round that ended) and vsoMatchStats (every
+    // round of the current series summed together) - see
+    // vsOnlineCaptureRoundStats, which populates both right as each round
+    // ends. Rebuilt from scratch every time the finish screen shows rather
+    // than patched in place, since it only ever needs to reflect a single
+    // moment (the match just ending), not update live.
+    function vsOnlineRenderFinishStats() {
+        const el = document.getElementById('vso-finish-stats');
+        if (!el) return;
+        if (!vsoLastRoundStats || !vsoMatchStats) { el.innerHTML = ''; return; }
+
+        const matchPps = t => (t.timeMs > 0 ? t.pieces / (t.timeMs / 1000) : 0);
+        const matchApm = t => (t.timeMs > 0 ? t.damage / (t.timeMs / 60000) : 0);
+
+        const rows = [
+            { label: 'PPS &middot; ROUND', me: vsoLastRoundStats.me.pps, opp: vsoLastRoundStats.opp.pps, dec: 2 },
+            { label: 'APM &middot; ROUND', me: vsoLastRoundStats.me.apm, opp: vsoLastRoundStats.opp.apm, dec: 1 },
+            { label: 'PPS &middot; MATCH', me: matchPps(vsoMatchStats.me), opp: matchPps(vsoMatchStats.opp), dec: 2 },
+            { label: 'APM &middot; MATCH', me: matchApm(vsoMatchStats.me), opp: matchApm(vsoMatchStats.opp), dec: 1 },
+            { label: 'PIECES &middot; MATCH', me: vsoMatchStats.me.pieces, opp: vsoMatchStats.opp.pieces, dec: 0 },
+            { label: 'LINES SENT &middot; MATCH', me: vsoMatchStats.me.damage, opp: vsoMatchStats.opp.damage, dec: 0 }
+        ];
+
+        const myName = escapeHtml(getPlayerName());
+        const oppName = escapeHtml(vsoOpponentName || 'OPPONENT');
+        let html = `<div class="vfs-head"><div class="vfs-head-you">${myName}</div><div class="vfs-head-mid"></div><div class="vfs-head-opp">${oppName}</div></div>`;
+        rows.forEach(r => {
+            const meBetter = r.me > r.opp;
+            const oppBetter = r.opp > r.me;
+            html += `<div class="vfs-row">` +
+                `<div class="vfs-you${meBetter ? ' vfs-better' : ''}">${r.me.toFixed(r.dec)}</div>` +
+                `<div class="vfs-label">${r.label}</div>` +
+                `<div class="vfs-opp${oppBetter ? ' vfs-better' : ''}">${r.opp.toFixed(r.dec)}</div>` +
+                `</div>`;
+        });
+        el.innerHTML = html;
+    }
+
     function vsOnlineShowFinishScreen(iWon) {
         vsoShowingFinishScreen = true;
         vsoRematchRequested = false;
@@ -11808,10 +12794,11 @@
                 ? `You won the match against ${vsoOpponentName}!`
                 : `${vsoOpponentName} won the match.`;
         }
-        if (btn) { btn.disabled = false; btn.innerText = 'REMATCH?'; }
+        if (btn) { btn.disabled = false; btn.innerText = 'REMATCH?'; btn.style.textDecoration = ''; btn.style.opacity = ''; }
         const timerEl = document.getElementById('vso-finish-timer');
         if (timerEl) timerEl.style.display = 'none';
 
+        vsOnlineRenderFinishStats();
         document.getElementById('vso-finish-modal').style.display = 'flex';
     }
 
@@ -12029,7 +13016,7 @@
             btn.innerHTML = `<span class="ssp-name">${cp.label}</span><span class="ssp-desc">${cp.desc}</span>`;
             btn.addEventListener('click', () => {
                 if (btn.classList.contains('locked')) return;
-                startGame('survival', cp.altitude);
+                launchModeFromCard('survival', cp.altitude);
             });
             wrap.appendChild(btn);
         });
@@ -12097,7 +13084,7 @@
             btn.type = 'button';
             btn.className = 'bdp-btn';
             btn.innerHTML = `<span class="bdp-name">${cfg.label}</span><span class="bdp-desc">${cfg.desc}</span>`;
-            btn.addEventListener('click', () => startGame('boss', cfg.key));
+            btn.addEventListener('click', () => launchModeFromCard('boss', cfg.key));
             wrap.appendChild(btn);
         });
         wrap.dataset.built = 'true';
@@ -12687,7 +13674,11 @@
     // Survival keeps the original cyan.
     const V2_BADGE_RED_MODES = ['boss', 'vs', 'botvsbot'];
 
-    const modeDeck = [
+    // Every real, playable mode card - unchanged from the old flat deck,
+    // just renamed since it's no longer the thing the carousel shows
+    // directly (see CATEGORY_DECK/buildCategorySubDeck below). Still the
+    // one place a mode's label/tag/colour is defined.
+    const ALL_MODES = [
         { mode: 'endless', label: 'Endless', tag: 'Arcade', color: '#aa00ff' },
         { mode: 'sprint', label: 'Ultra', tag: 'Speed', color: '#ff9900' },
         { mode: 'survival', label: 'Survival', tag: 'Endure', color: '#5be8ff' },
@@ -12698,15 +13689,246 @@
         { mode: 'endurance', label: 'Endurance', tag: 'Wave', color: '#ff3366' },
         { mode: 'puyo', label: 'Puyo Puyo', tag: 'Beta', color: '#ff66cc' },
         { mode: 'tutorial', label: 'Tutorial', tag: 'Learn', color: '#8b5a2b' },
+        // Not a real startGame() mode - handled entirely by its own
+        // launchSkillTest()/skilltest-mode-card-click special case below,
+        // same pattern puzzles/vsonline already use for "this card doesn't
+        // just call startGame directly".
+        { mode: 'skilltest', label: 'Skill Test', tag: 'Rated', color: '#35e08a' },
         // V2 BETA only - see isModeCardEnabled/skipDisabledModeIndex, which
         // hide this card and steer the deck's selection past it whenever
         // v2Beta is off, so V1 never sees or can land on Boss at all.
         { mode: 'boss', label: 'Boss', tag: 'V2', color: '#c81e3a' }
     ];
-    // Boss is the only mode deck entry gated behind V2 BETA - it stays in
-    // modeDeck itself (so every index-based piece of the carousel code below
-    // keeps working unmodified) but is hidden and un-landable whenever v2Beta
-    // is off, via these two helpers rather than filtering the array.
+    // The screen-wipe/door accent colour per mode - shared by startGame's
+    // #transition-wipe and launchModeFromCard's #mode-door, which both need
+    // it independently (CSS custom properties only inherit down the DOM
+    // tree, and the door isn't a descendant of the wipe element).
+    const MODE_WIPE_COLORS = {
+        endless: '#aa00ff', sprint: '#ff3300', survival: '#ffffff', survivalCoop: '#ffffff',
+        puzzles: '#e040fb', vs: '#ff3366', vsonline: '#ff3366', botvsbot: '#ff9900',
+        endurance: '#00f2fe', puyo: '#ff66cc', tutorial: '#8b5a2b', boss: '#c81e3a', skilltest: '#35e08a'
+    };
+    function getModeWipeColor(mode) { return MODE_WIPE_COLORS[mode] || '#00ffcc'; }
+    // ================================================================
+    // GAME MODES - two levels deep. The carousel first shows these five
+    // CATEGORY cards; picking one either opens its own existing screen
+    // directly (ONLINE - see openVsOnlineLobby, already has its own
+    // VERSUS/CO-OP categories inside) or swaps the carousel to that
+    // category's own mode cards (see buildCategorySubDeck), with a '__back'
+    // card of its own to return. The carousel/navigation code below never
+    // needed to know which level it's showing - it just operates on
+    // whatever `modeDeck` currently points at (see switchModeDeck).
+    // ================================================================
+    const CATEGORY_DECK = [
+        { mode: 'cat_versus', label: 'Versus', tag: 'Compete', color: '#ff3366', modes: ['vs', 'botvsbot', 'endurance'] },
+        { mode: 'cat_train', label: 'Train', tag: 'Practice', color: '#5be8ff', modes: ['endless', 'sprint', 'survival', 'skilltest'] },
+        { mode: 'cat_online', label: 'Online', tag: 'Live', color: '#2a4fff', modes: null },
+        { mode: 'cat_other', label: 'Other', tag: 'Extra', color: '#ffaa33', modes: ['boss', 'tutorial', 'puzzles'] },
+        { mode: 'cat_experimental', label: 'Experimental', tag: 'Beta', color: '#ff66cc', modes: ['puyo'] }
+    ];
+    const BACK_CARD = { mode: '__back', label: 'Back', tag: 'Categories', color: '#888899' };
+    function buildCategorySubDeck(categoryMode) {
+        const cat = CATEGORY_DECK.find(c => c.mode === categoryMode);
+        if (!cat || !cat.modes) return CATEGORY_DECK;
+        const cards = cat.modes.map(key => ALL_MODES.find(m => m.mode === key)).filter(Boolean);
+        return [BACK_CARD, ...cards];
+    }
+    // The one place `modeDeck` (the carousel's current data source) ever
+    // changes - rebuilds the deck array, resets selection to the front,
+    // and marks the viewport dirty so updateModeCards() actually rebuilds
+    // the DOM instead of just re-positioning the existing cards (see its
+    // own deckToken check).
+    function switchModeDeck(nextDeck) {
+        modeDeck = nextDeck;
+        selectedModeIndex = 0;
+        const viewport = document.getElementById('mode-viewport');
+        if (viewport) delete viewport.dataset.cardsReady;
+        updateModeCards();
+        // Same staggered pop-in setMenuStage gives the deck on first entering
+        // the stage - a category drill-down/back is its own fresh arrival,
+        // not just a re-position, so it earns the same flourish.
+        const cards = document.querySelectorAll('#play-stage .mode-card');
+        const inners = document.querySelectorAll('#play-stage .mode-card-inner');
+        cards.forEach(el => el.classList.remove('pop-in'));
+        inners.forEach(el => el.classList.remove('pop-in'));
+        void document.body.offsetWidth;
+        cards.forEach((el, i) => {
+            el.style.animationDelay = (i * 0.035) + 's';
+            el.classList.add('pop-in');
+        });
+        inners.forEach((el, i) => {
+            el.style.animationDelay = (i * 0.035 + 0.05) + 's';
+            el.classList.add('pop-in');
+        });
+    }
+    // mode card click/Enter dispatch out of the carousel - handles the two
+    // non-gameplay card types (a category, or the back card) itself, and
+    // tells the caller whether it did (so the normal startGame/picker
+    // dispatch below never also runs for them).
+    function handleModeCardActivate(mode) {
+        if (mode === '__back') { switchModeDeck(CATEGORY_DECK); return true; }
+        if (mode && mode.indexOf('cat_') === 0) {
+            if (mode === 'cat_online') openVsOnlineLobby();
+            else switchModeDeck(buildCategorySubDeck(mode));
+            return true;
+        }
+        return false;
+    }
+    // The real "start the game" path from the GAME MODES carousel (direct
+    // card click/Enter, or a picker's own confirm button - bot level,
+    // survival altitude, tutorial track, boss difficulty). Plays the
+    // card's own spin-and-launch (see .mode-card-launch), then the blast
+    // doors (see #mode-door) close over it, the ACTUAL startGame() runs
+    // completely hidden behind them (fastTransition:true - the door IS
+    // the transition now, the old diagonal wipe would just be a second one
+    // stacked on top), then the doors open onto the game already running.
+    function launchModeFromCard(mode, startAltitude) {
+        const card = document.querySelector('#play-stage .mode-card.active');
+        const door = document.getElementById('mode-door');
+        const begin = () => {
+            if (door) {
+                // Set before it closes, not after startGame() gets to it -
+                // otherwise the door shows its fallback colour for the
+                // entire close and only corrects right as it opens again.
+                door.style.setProperty('--wipe-color', getModeWipeColor(mode));
+                door.style.display = 'block';
+                void door.offsetWidth;
+                door.classList.add('mode-door-closed');
+            }
+            // Matches the close bounce's own duration (see
+            // modeDoorCloseLeft/Right, 1.2s) - the real game setup happens
+            // right as the doors finish settling, not mid-slam.
+            setTimeout(() => {
+                startGame(mode, startAltitude, true);
+                // A real hold before opening again, not an instant
+                // reaction to startGame() returning - "closed for a
+                // moment" is the whole point of a door, not just a wipe
+                // with extra steps.
+                setTimeout(() => {
+                    if (!door) return;
+                    door.classList.remove('mode-door-closed');
+                    setTimeout(() => { door.style.display = 'none'; }, 750);
+                }, 900);
+            }, 1220);
+        };
+        if (card) {
+            card.classList.remove('mode-card-launch');
+            void card.offsetWidth;
+            card.classList.add('mode-card-launch');
+            setTimeout(begin, 420);
+        } else {
+            begin();
+        }
+    }
+
+    // ================================================================
+    // SKILL TEST - three Ultra (40-line sprint) rounds back to back (see
+    // the skillTestActive branch inside lockPiece's sprint-completion
+    // check), averaged and compared against a tier ladder and the
+    // player's own previous best. Reuses launchModeFromCard/startGame's
+    // plain 'sprint' mode underneath rather than a parallel game mode -
+    // the only thing that's actually different is what happens at 40
+    // lines and that it repeats 3 times before showing a report.
+    // ================================================================
+    function launchSkillTest() {
+        skillTestActive = true;
+        skillTestRound = 0;
+        skillTestResults = [];
+        launchModeFromCard('sprint');
+    }
+
+    const SKILL_TEST_TIERS = [
+        { max: 1.0, label: 'BEGINNER', color: '#999999' },
+        { max: 1.5, label: 'AVERAGE', color: '#5be8ff' },
+        { max: 2.0, label: 'GOOD', color: '#35e08a' },
+        { max: 2.5, label: 'GREAT', color: '#ffaa33' },
+        { max: Infinity, label: 'ELITE', color: '#ff3366' }
+    ];
+    function skillTestTierFor(avgPps) {
+        return SKILL_TEST_TIERS.find(t => avgPps < t.max) || SKILL_TEST_TIERS[SKILL_TEST_TIERS.length - 1];
+    }
+
+    // The sprint-completion check calls this INSTEAD of triggerGameOver
+    // while a skill test is running - sprint's own per-run report card
+    // never shows for any of the 3 rounds, only the final summary does.
+    function skillTestFinishRound(p) {
+        const secs = p.playTimeMs / 1000;
+        const pps = secs > 0 ? p.totalPieces / secs : 0;
+        skillTestResults.push({ pps, timeMs: p.playTimeMs });
+        skillTestRound++;
+        if (skillTestRound < 3) {
+            showMiniToast(`ROUND ${skillTestRound} OF 3 COMPLETE - NEXT ROUND STARTING...`);
+            setTimeout(() => { startGame('sprint', undefined, true); }, 1300);
+        } else {
+            fadeAudio(mainBgm, 0, 600);
+            setTimeout(() => skillTestShowSummary(), 700);
+        }
+    }
+
+    function skillTestShowSummary() {
+        skillTestActive = false;
+        overlayActive = true;
+        bgFrozen = true;
+
+        const n = skillTestResults.length;
+        const avgPps = skillTestResults.reduce((a, r) => a + r.pps, 0) / n;
+        const avgTimeMs = skillTestResults.reduce((a, r) => a + r.timeMs, 0) / n;
+        const tier = skillTestTierFor(avgPps);
+
+        const prevBest = personalBests['skilltest'];
+        const isNewBest = !prevBest || avgPps > prevBest.value;
+        if (isNewBest) {
+            personalBests['skilltest'] = {
+                value: avgPps,
+                avgTimeMs,
+                text: `${avgPps.toFixed(2)} PPS avg - ${formatTime(avgTimeMs)} avg - ${tier.label}`
+            };
+            saveBests();
+        }
+
+        const rowsEl = document.getElementById('skilltest-rows');
+        if (rowsEl) {
+            rowsEl.innerHTML = skillTestResults.map((r, i) => `
+                <div class="skt-row">
+                    <div class="skt-round">ROUND ${i + 1}</div>
+                    <div class="skt-pps">${r.pps.toFixed(2)} <span>PPS</span></div>
+                    <div class="skt-time">${formatTime(r.timeMs)}</div>
+                </div>
+            `).join('');
+        }
+        const ppsEl = document.getElementById('skilltest-avg-pps');
+        if (ppsEl) ppsEl.innerText = avgPps.toFixed(2);
+        const timeEl = document.getElementById('skilltest-avg-time');
+        if (timeEl) timeEl.innerText = formatTime(avgTimeMs);
+        const tierEl = document.getElementById('skilltest-tier');
+        if (tierEl) {
+            tierEl.innerText = tier.label;
+            tierEl.style.color = tier.color;
+            tierEl.style.textShadow = `0 0 16px ${tier.color}`;
+        }
+        const newBestEl = document.getElementById('skilltest-newbest');
+        if (newBestEl) newBestEl.style.display = isNewBest ? 'flex' : 'none';
+        const prevEl = document.getElementById('skilltest-prevbest');
+        if (prevEl) prevEl.innerText = (!isNewBest && prevBest) ? `Personal best: ${prevBest.value.toFixed(2)} PPS avg` : '';
+
+        document.getElementById('skilltest-modal').style.display = 'flex';
+    }
+
+    function skillTestRetry() {
+        document.getElementById('skilltest-modal').style.display = 'none';
+        launchSkillTest();
+    }
+    function skillTestToMenu() {
+        document.getElementById('skilltest-modal').style.display = 'none';
+        backToMenu();
+    }
+    // Mutable - starts on the category deck, swapped by switchModeDeck as
+    // the user drills in/out (see the module comment above). Boss is the
+    // only ALL_MODES entry gated behind V2 BETA - it stays in its data
+    // array (so every index-based piece of the carousel code below keeps
+    // working unmodified) but is hidden and un-landable whenever v2Beta is
+    // off, via these two helpers rather than filtering the array.
+    let modeDeck = CATEGORY_DECK;
     function isModeCardEnabled(modeData) {
         return !modeData || modeData.mode !== 'boss' || v2Beta;
     }
@@ -12985,6 +14207,14 @@
         }
         activateMenuTitlePanels(stage);
         if (nextStage === 'play') {
+          // Always lands back on the front category view, never wherever a
+          // previous visit happened to drill into - see switchModeDeck.
+          if (modeDeck !== CATEGORY_DECK) {
+            modeDeck = CATEGORY_DECK;
+            const viewport = document.getElementById('mode-viewport');
+            if (viewport) delete viewport.dataset.cardsReady;
+          }
+          selectedModeIndex = 0;
           updateModeCards();
           // The deck's own staggered pop-in (see .mode-card.pop-in /
           // .mode-card-inner.pop-in) - only on an actual navigation into the
@@ -13077,16 +14307,22 @@
         if (!viewport) return;
 
         if (!viewport.dataset.cardsReady) {
-            viewport.innerHTML = modeDeck.map(modeData => `
-                <div class="mode-card" data-mode="${modeData.mode}">
+            viewport.innerHTML = modeDeck.map(modeData => {
+                const isCategory = modeData.mode.indexOf('cat_') === 0;
+                const isBack = modeData.mode === '__back';
+                return `
+                <div class="mode-card${isCategory ? ' mode-card-category' : ''}${isBack ? ' mode-card-back' : ''}" data-mode="${modeData.mode}">
+                    <div class="mode-card-shine"></div>
                     <div class="mode-card-inner">
+                        ${isBack ? '<div class="mode-back-arrow">&#10094;</div>' : ''}
                         <div class="mode-name">${modeData.label.toUpperCase()}</div>
                         <div class="mode-tag">${modeData.tag.toUpperCase()}</div>
                     </div>
+                    ${isCategory ? '<div class="mode-card-chevron">&#10095;</div>' : ''}
                     ${modeData.mode === 'tutorial' ? '<div class="mode-alpha-badge hover-tip hover-tip-badge-left" data-tip="Alpha">A</div>' : ''}
                     ${V2_AFFECTED_MODES.includes(modeData.mode) ? `<div class="mode-v2-badge${V2_BADGE_RED_MODES.includes(modeData.mode) ? ' v2-red' : ''} hover-tip hover-tip-badge-right" id="${modeData.mode}-v2-badge" data-tip="V2 Features Enabled">V2</div>` : ''}
                 </div>
-            `).join('');
+            `; }).join('');
 
             viewport.querySelectorAll('.mode-card').forEach(card => {
                 card.addEventListener('click', () => {
@@ -13094,6 +14330,10 @@
                     const wasSelected = modeDeck[selectedModeIndex] && modeDeck[selectedModeIndex].mode === mode;
                     selectedModeIndex = modeDeck.findIndex(item => item.mode === mode);
                     updateModeCards();
+                    // A category or the back card always acts on the first
+                    // click, centred or not - same as every other simple
+                    // (non-picker) card already does.
+                    if (handleModeCardActivate(mode)) return;
                     // Bot modes carry a setting, so the first click only brings the
                     // card (and its level wheel) to the front; the second starts.
                     // Tutorial and Survival work the same way, but with a track/
@@ -13106,7 +14346,8 @@
                     else if (mode === 'survival') { /* handled by the start-altitude picker buttons */ }
                     else if (mode === 'boss') { /* handled by the difficulty picker buttons */ }
                     else if (mode === 'vsonline') openVsOnlineLobby();
-                    else startGame(mode);
+                    else if (mode === 'skilltest') launchSkillTest();
+                    else launchModeFromCard(mode);
                 });
             });
 
@@ -13258,12 +14499,19 @@
             selectedModeIndex = (selectedModeIndex - 1 + modeDeck.length) % modeDeck.length;
             skipDisabledModeIndex(-1);
             updateModeCards();
+        } else if (event.key === 'Escape' && modeDeck !== CATEGORY_DECK) {
+            // Same as clicking/landing on the deck's own __back card, just
+            // from wherever the selection currently is.
+            switchModeDeck(CATEGORY_DECK);
+            event.preventDefault();
         } else if (event.key === 'Enter' || event.key === ' ') {
             const mode = modeDeck[selectedModeIndex].mode;
-            if (mode === 'puzzles') openPuzzleMenu();
+            if (handleModeCardActivate(mode)) { /* category/back - already handled */ }
+            else if (mode === 'puzzles') openPuzzleMenu();
             else if (mode === 'boss') { /* handled by the difficulty picker buttons */ }
             else if (mode === 'vsonline') openVsOnlineLobby();
-            else startGame(mode);
+            else if (mode === 'skilltest') launchSkillTest();
+            else launchModeFromCard(mode);
         }
     });
 
@@ -13623,7 +14871,7 @@
 
     function startTutorial(track) {
       tutorialTrack = track;
-      startGame('tutorial');
+      launchModeFromCard('tutorial');
     }
 
     function initTutorialWalk(p, track) {
@@ -13966,8 +15214,12 @@
     function initTitleMusic() {
         ensureAudioRouting();
         if (!mainBgm.paused) return;
-        // Deliberately silent (game-over fade, mid-transition): leave it alone.
-        if (overlayActive || isStarting) return;
+        // Deliberately silent (game-over fade, mid-transition, VS Online's
+        // ending sequence/finish screen): leave it alone. Without the
+        // vsoMatchFrozen check, clicking anywhere on the finish screen (to
+        // reach REMATCH) restarted the main menu's music underneath a match
+        // that technically hasn't been left yet.
+        if (overlayActive || isStarting || vsoMatchFrozen || vsoSyncPaused) return;
         // Play whichever menu track setModePlaylist already chose. Forcing
         // track 0 here would leave currentTrackIdx and the on-screen track
         // name pointing at a different song than the one actually playing.
@@ -13994,7 +15246,7 @@
     setInterval(() => {
       if (!mainBgm || userMaxVolume <= 0 || !AUDIO_PATHS_RESOLVE) return;
       if (!mainBgm.paused) return;
-      if (overlayActive || isStarting || audioFadeInterval) return;   // silent on purpose
+      if (overlayActive || isStarting || audioFadeInterval || vsoMatchFrozen || vsoSyncPaused) return;   // silent on purpose
       if (players.length && players.some(p => p.gameOver)) return;
       if (!currentPlaylist || !currentPlaylist[currentTrackIdx]) return;
       if (mainBgm.error) return;                                       // the error handler owns this
@@ -15451,6 +16703,9 @@
         // keydown handler).
         if (gameMode === 'vsonline') {
             vsoMatchFrozen = true;
+            // Instant, not delayed behind the explosion below - see
+            // vsOnlineShowBoardFinish.
+            vsOnlineShowBoardFinish(p.id);
             if (p.id === 0 && vsoChannel) vsOnlineSendGameOver();
         }
         // SURVIVAL CO-OP reuses the exact same "I topped out" signal - the
@@ -16240,11 +17495,6 @@
     // ================================================================
     let coopLivesRemaining = 3;
     let coopAllyAltitudeM = 0;
-    // Host-authoritative so the garbage dial can never drift apart between
-    // the two boards (see the ownsGarbageClock checks in stepGame) - set
-    // the moment the clock actually fires, consumed by the very next
-    // broadcast, then cleared.
-    let coopLastGarbageFired = null;
 
     function coopTeamAltitudeM() {
       return gameMode === 'survivalCoop' ? (survivalAltitudeM + coopAllyAltitudeM) : survivalAltitudeM;
@@ -22990,10 +24240,19 @@
              // to be sent over the wire for the opponent's own real board to
              // apply it to themselves.
              if (gameMode === 'vsonline' && p.id === 0 && vsoChannel) {
+                 // myTotal is the running cumulative total AFTER this hit,
+                 // not just this hit's own damage - vsOnlineHandleAttack
+                 // and vsOnlineHandleState's periodic self-heal both key
+                 // off that same running total (never a raw amount), so
+                 // whichever one a given chunk of damage actually arrives
+                 // through, it only ever gets applied once. If this
+                 // one-shot broadcast itself gets dropped, the next regular
+                 // 'state' snapshot carries the same total and catches it.
+                 vsoMyAttackTotal += damage;
                  vsoChannel.send({
                      type: 'broadcast',
                      event: 'attack',
-                     payload: { damage, releaseColor: b2bReleaseAttack ? b2bReleaseColor : null }
+                     payload: { damage, myTotal: vsoMyAttackTotal, releaseColor: b2bReleaseAttack ? b2bReleaseColor : null }
                  });
              }
 
@@ -23072,8 +24331,12 @@
       if (gameMode === 'sprint' && p.lines >= 40 && !p.gameOver) {
           p.gameOver = true;
           sfx.sprintFinish();
-          fadeAudio(mainBgm, 0, 3000);
-          triggerGameOver("FINISHED!");
+          if (skillTestActive) {
+              skillTestFinishRound(p);
+          } else {
+              fadeAudio(mainBgm, 0, 3000);
+              triggerGameOver("FINISHED!");
+          }
       }
 
       // A lock is the moment the opponent's board actually visibly changes
@@ -25227,6 +26490,11 @@
         // update arrives. Running gravity/lock/garbage on it here too would
         // fight that network state every tick instead of just displaying it.
         if (p.isOnlineMirror) return;
+        // Either side's tab is currently backgrounded (see
+        // vsOnlineUpdateSyncPause) - both boards hold still until it's
+        // visible again, applies to Co-op too (not just vsonline, unlike
+        // the match-decided freeze below, which is VS Online's own ending).
+        if ((gameMode === 'vsonline' || gameMode === 'survivalCoop') && vsoSyncPaused) return;
         // The match is already decided (see triggerKO) - the winner's own
         // board stops simulating too the instant it is, instead of the
         // usual "survivor keeps playing until the results screen" rule.
@@ -25486,11 +26754,13 @@
             p.garbageQueue.push({ lines: p.survivalNext.lines, timer: 0 });
             triggerSurvivalAttackPulse(p, p.survivalNext.lines);
             if (gameMode === 'survivalCoop') {
-                // Stashed for the very next broadcast (see
-                // vsOnlineBroadcastState) so the ally's board gets the exact
-                // same chunk at effectively the same moment, instead of
-                // each side ever rolling its own.
-                coopLastGarbageFired = p.survivalNext.lines;
+                // coopMyGarbageTotal is the running total sent on every
+                // broadcast (see vsOnlineBroadcastState) - the immediate
+                // broadcast right below gets the ally's board the exact
+                // same chunk at effectively the same moment, and the total
+                // itself lets a dropped broadcast self-heal later instead
+                // of that garbage being lost (see vsOnlineHandleState).
+                coopMyGarbageTotal += p.survivalNext.lines;
             }
             p.garbageTimer = 0;
             rollSurvivalGarbage(p);
@@ -25526,15 +26796,19 @@
         updateCoopAltitudeUI(teamAlt);
       }
 
-      // Periodic full-state broadcast so the opponent's board animates
-      // smoothly (falling piece, soft-dropping, DAS) between the immediate
-      // sends lockPiece already does on every lock. Was every 6 steps
-      // (~10/sec) - the gap between updates read as laggy, especially
-      // during a fast soft-drop. ~20/sec is still a trivially small JSON
-      // payload over a websocket broadcast for a 1v1.
+      // Periodic state broadcast so the opponent's board animates smoothly
+      // (falling piece, soft-dropping, DAS) between the immediate sends
+      // lockPiece already does on every lock. Was every 6 steps (~10/sec),
+      // then every 3 (~20/sec) - each bump read as less laggy but still
+      // visibly steppy, especially during a fast soft-drop or hard drop
+      // trail. Now every 2 (~30/sec) - affordable because most of these
+      // messages are tiny: the locked-block grid (the actual payload
+      // weight) is only included when it changed (see playfieldsEqual),
+      // which is just a lock/line-clear/garbage-settle, not every tick the
+      // falling piece moved one row.
       if ((gameMode === 'vsonline' || gameMode === 'survivalCoop') && vsoChannel && players[0]) {
           vsoBroadcastTick++;
-          if (vsoBroadcastTick % 3 === 0) vsOnlineBroadcastState();
+          if (vsoBroadcastTick % 2 === 0) vsOnlineBroadcastState();
       }
     }
 
@@ -25554,7 +26828,14 @@
       // visible cursor to click Resume. Synced here every frame off the one
       // flag every overlay already sets, rather than touching each of its
       // call sites individually.
-      document.body.classList.toggle('overlay-open', overlayActive);
+      // vsoMatchFrozen covers VS Online's whole ending sequence (the instant
+      // someone loses through the finish screen/rematch) - body still has
+      // .in-game the entire time (see vsOnlineHandleRematchStart/
+      // vsOnlineHandleNextRoundStart, the only places that clear it), so
+      // without this the real cursor stayed hidden right when REMATCH/MAIN
+      // MENU need clicking - same reasoning pollGamepad already uses for
+      // the controller cursor.
+      document.body.classList.toggle('overlay-open', overlayActive || vsoMatchFrozen || vsoSyncPaused);
 
       if (!isPaused && !isStarting) {
         // Feeding the accumulator faster than real time is what makes the whole
@@ -25749,6 +27030,11 @@
     document.addEventListener('keydown', e => {
       if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 
+      // Typing into a text field (room code, name prompt, etc.) should never
+      // be hijacked by menu shortcuts like Q/E for Music/Settings below.
+      const typingTarget = document.activeElement;
+      if (!bindingAction && typingTarget && (typingTarget.tagName === 'INPUT' || typingTarget.tagName === 'TEXTAREA')) return;
+
       // Intercept keypress if the user is currently binding a key
       if (bindingAction) {
           e.preventDefault();
@@ -25930,6 +27216,7 @@
 
       if(isPaused || isStarting || overlayActive || players.length === 0 || players[0].gameOver) return;
       if (gameMode === 'vsonline' && vsoMatchFrozen) return;
+      if ((gameMode === 'vsonline' || gameMode === 'survivalCoop') && vsoSyncPaused) return;
 
       let p1 = players[0];
 
@@ -26308,7 +27595,10 @@
     // a direction stuck on.
     function clearHeldKeys() { keys.left = keys.right = keys.down = false; puyoTurbo = false; }
     window.addEventListener('blur', clearHeldKeys);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) clearHeldKeys(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearHeldKeys();
+        vsOnlineHandleLocalVisibilityChange();
+    });
     document.addEventListener('touchend', (e) => { if (e.touches.length === 0 && document.body.classList.contains('in-game')) { /* buttons handle their own release */ } }, { passive: true });
 
     document.getElementById('p1-hold').addEventListener('click', () => {
@@ -26371,8 +27661,24 @@
         tick();
     }
 
-    function startGame(mode, startAltitude) {
-      if (!passAuthGate(() => startGame(mode, startAltitude))) return;
+    // fastTransition skips the full-screen colour-wipe ceremony (the "trans"
+    // element covering the screen while the menu and game-area swap out
+    // underneath it) - used for going straight into the next round of an
+    // already-live VS Online FT3/5 series, where the menu was never shown
+    // in the first place and a ~2.2s screen-wipe just reads as dead time
+    // between rounds. Every actual reset/setup step below still runs
+    // exactly as it does for a normal start - only the cosmetic wipe and
+    // its delays are shortened/skipped, so this stays a pure timing/visual
+    // variant, not a second code path that could drift out of sync with it.
+    function startGame(mode, startAltitude, fastTransition) {
+      if (!passAuthGate(() => startGame(mode, startAltitude, fastTransition))) return;
+      // See the fastTransition comment above - these three delays are the
+      // entire "screen-wipe ceremony" timing; fast mode just compresses
+      // them to near-zero instead of skipping/restructuring the sequence
+      // itself, so a normal start's choreography can never drift from this.
+      const wipeDelay1 = fastTransition ? 0 : 600;
+      const wipeDelay2 = fastTransition ? 40 : 800;
+      const wipeDelay3 = fastTransition ? 40 : 800;
       setMenuStage('', '', true);
       // A chains screen left showing (e.g. a team wipe landing on the
       // SECOND death, which never goes through the normal reviving-breaks-
@@ -26381,6 +27687,23 @@
       // now always clears it, not just co-op's own startup branch below.
       coopHideChains({ prefix: 'p1' });
       coopHideChains({ prefix: 'p2' });
+      // Same reasoning as the chains reset above - the per-board FINISH
+      // label (see vsOnlineShowBoardFinish) needs clearing unconditionally
+      // too, or a match ending right as a rematch/next round starts could
+      // leave it stuck showing over a board that's already back in play.
+      vsOnlineHideBoardFinishLabels();
+      // And again, same reasoning: every garbage/attack self-heal counter
+      // (see vsOnlineHandleAttack/vsOnlineHandleState) starts a fresh
+      // round at zero on both sides - one unconditional reset here covers
+      // every way a new round can start, instead of needing to remember it
+      // at each individual match-start/rematch/next-round call site.
+      vsoMyAttackTotal = 0; vsoOpponentAttackApplied = 0;
+      coopMyGarbageTotal = 0; coopAllyGarbageApplied = 0;
+      // Forces the very first post-start broadcast to include a full
+      // playfield (see vsOnlineBroadcastState) instead of possibly reading
+      // as "unchanged" against a stale snapshot left over from a previous
+      // round.
+      vsoLastSentPlayfield = null;
       if (mode === 'survival') survivalStartCheckpoint = startAltitude || 0;
       // SURVIVAL CO-OP never starts from a checkpoint - both players always
       // begin together at the surface.
@@ -26388,7 +27711,6 @@
         survivalStartCheckpoint = 0;
         coopLivesRemaining = 3;
         coopAllyAltitudeM = 0;
-        coopLastGarbageFired = null;
         updateCoopLivesUI();
       }
       // Boss reuses the same second-argument slot for its difficulty key
@@ -26417,22 +27739,16 @@
 
       setModePlaylist(mode);
 
-      let wipeColor = '#00ffcc';
-      if(mode === 'endless') wipeColor = '#aa00ff';
-      else if(mode === 'sprint') wipeColor = '#ff3300';
-      else if(mode === 'survival') wipeColor = '#ffffff';
-      else if(mode === 'survivalCoop') wipeColor = '#ffffff';
-      else if(mode === 'puzzles') wipeColor = '#e040fb';
-      else if(mode === 'vs') wipeColor = '#ff3366';
-      else if(mode === 'vsonline') wipeColor = '#ff3366';
-      else if(mode === 'botvsbot') wipeColor = '#ff9900';
-      else if(mode === 'endurance') wipeColor = '#00f2fe';
-      else if(mode === 'puyo') wipeColor = '#ff66cc';
-      else if(mode === 'tutorial') wipeColor = '#8b5a2b';
-      else if(mode === 'boss') wipeColor = '#c81e3a';
+      let wipeColor = getModeWipeColor(mode);
 
       let trans = document.getElementById('transition-wipe');
       trans.style.setProperty('--wipe-color', wipeColor);
+      // Also on #mode-door - a CSS custom property only inherits down the
+      // DOM tree, and the door is a sibling of #transition-wipe, not a
+      // descendant, so setting it there alone left the door always falling
+      // back to its own default colour instead of this mode's.
+      const doorEl = document.getElementById('mode-door');
+      if (doorEl) doorEl.style.setProperty('--wipe-color', wipeColor);
 
       let menu = document.getElementById('main-menu');
       menu.classList.remove('menu-entering');
@@ -26443,8 +27759,10 @@
       fadeAudio(mainBgm, 0, 800);
 
       setTimeout(() => {
-          trans.style.transition = 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-          trans.style.transform = 'translateX(0)';
+          if (!fastTransition) {
+              trans.style.transition = 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+              trans.style.transform = 'translateX(0)';
+          }
 
           setTimeout(() => {
               menu.style.display = 'none';
@@ -26664,17 +27982,19 @@
               if (rAF) cancelAnimationFrame(rAF);
               rAF = requestAnimationFrame(gameLoop);
 
-              trans.style.transform = 'translateX(100%)';
+              if (!fastTransition) trans.style.transform = 'translateX(100%)';
               armBoardFlyIn(gameArea);
 
               setTimeout(() => {
-                  trans.style.transition = 'none';
-                  trans.style.transform = 'translateX(-150%)';
+                  if (!fastTransition) {
+                      trans.style.transition = 'none';
+                      trans.style.transform = 'translateX(-150%)';
+                  }
                   startCountdown();
                   playCurrentTrack(1000); // Fade in track here
-              }, 800);
-          }, 800);
-      }, 600);
+              }, wipeDelay3);
+          }, wipeDelay2);
+      }, wipeDelay1);
     }
 
     // .fly-in's boardFlyIn animation uses fill-mode "forwards" so the board
@@ -26728,7 +28048,7 @@
           if (gameMode === 'survivalCoop') {
               coopLivesRemaining = 3;
               coopAllyAltitudeM = 0;
-              coopLastGarbageFired = null;
+              coopMyGarbageTotal = 0; coopAllyGarbageApplied = 0;
               updateCoopLivesUI();
           }
       } else if (gameMode === 'boss') {
