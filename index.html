@@ -1533,30 +1533,51 @@
       position: absolute;
       inset: 0;
       z-index: 20;
-      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      padding: 14% 0;
-      gap: 6px;
+      justify-content: center;
       background: radial-gradient(ellipse at 50% 50%, rgba(10,14,26,0.78), rgba(5,7,14,0.9));
       border-radius: 4px;
+      overflow: hidden;
     }
     body.coop-joined #coop-chains-bridge.on { display: flex; }
+    /* CHAINED sits above both diagonals (z-index) with its own dark backing
+       pill for contrast - per the brief, it has to stay completely
+       readable with the hollow chains crossing behind it, not fight them. */
     .coop-chains-title {
+      position: relative;
+      z-index: 3;
       font-family: Impact, 'Arial Narrow', 'Haettenschweiler', 'Segoe UI', sans-serif;
       font-size: 24px; letter-spacing: 3px; color: #ff3d8f;
       text-shadow: 0 0 12px rgba(255,61,143,0.7);
       white-space: nowrap;
+      padding: 3px 14px;
+      background: rgba(5,7,14,0.55);
+      border-radius: 999px;
     }
-    /* One real chain, stretched across the board - built as two halves
-       meeting in the middle so it can visibly SNAP apart (see
-       coopBreakChainFx) the instant its own condition is met, instead of
-       just fading a label out. */
+    .coop-chains-hint {
+      position: absolute; left: 50%; bottom: 10%;
+      transform: translateX(-50%);
+      z-index: 3;
+      font-size: 10px; color: #9fb0c8; letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    /* Two lightweight hollow chains crossing the board in an X - one per
+       break condition, each still built as two halves meeting at the
+       centre (see coopBreakChainFx) so it can SNAP apart on its own. The
+       X itself is just the old horizontal chain-row, rotated: a half's own
+       translateX break animation runs in ITS rotated coordinate space, so
+       it already flies outward along the diagonal with no extra work.
+       118% wide (not 82%) so the rotated row's ends actually clear the
+       board's corners instead of falling short of them. */
     .coop-chain-row {
-      position: relative;
-      width: 82%;
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 118%;
       height: 28px;
+      z-index: 1;
     }
+    .coop-chain-diag-a { transform: translate(-50%, -50%) rotate(58deg); }
+    .coop-chain-diag-b { transform: translate(-50%, -50%) rotate(-58deg); }
     .coop-chain-bar-half {
       position: absolute;
       top: 50%;
@@ -1569,14 +1590,14 @@
     }
     .coop-chain-bar-half.left { left: 0; justify-content: flex-end; transform-origin: left center; }
     .coop-chain-bar-half.right { right: 0; justify-content: flex-start; transform-origin: right center; }
-    /* Actual interlocking links - alternating vertical/horizontal ovals
-       (classic chain construction), HOLLOW outline rings instead of a
-       filled metal gradient, like a quick illustrated sketch rather than
-       a rendered 3D object - the dark board shows straight through the
-       middle of each link. A slightly uneven border-radius and small
-       per-link rotation jitter (see the nth-child rules below) keep it
-       from reading as a mechanically perfect vector shape, closer to a
-       hand-drawn line. Cyan, matching the game's own palette. */
+    /* Hollow outline rings instead of a filled metal gradient - a quick
+       illustrated sketch rather than a rendered 3D object, the dark board
+       (and now the CHAINED text/cracks) show straight through the middle
+       of each link. Uneven border-radius plus small per-link rotation
+       jitter keep it reading as hand-drawn rather than a vector shape
+       stamped out identically. Fewer links than before (4, not 6) per the
+       brief's "simplify/lightweight" ask - two short diagonals read fine
+       with less. */
     .coop-chain-bar-half .link {
       width: 14px; height: 22px;
       margin-left: -6px;
@@ -1588,19 +1609,29 @@
     .coop-chain-bar-half .link:first-child { margin-left: 0; }
     .coop-chain-bar-half .link:nth-child(even) { transform: rotate(92deg); }
     .coop-chain-bar-half .link:nth-child(3n) { transform: rotate(-4deg); }
-    .coop-chain-bar-half .link:nth-child(4n) { transform: rotate(95deg); border-radius: 52% 48% 49% 51% / 47% 53% 48% 52%; }
+    /* Tags stay upright and legible by counter-rotating back out of the
+       row's own diagonal (translate happens first, in the row's local
+       frame, so the tag still lands in the right spot along the diagonal;
+       the rotate after it only spins the tag itself back to horizontal -
+       see the module comment above .coop-chain-row for why composing
+       transforms this way works). Anchored past each row's own midpoint,
+       clear of the centre fracture/CHAINED badge instead of stacking
+       under it the way a single shared centre label would. */
     .coop-chain-tag {
-      position: absolute; top: 100%; left: 50%;
-      transform: translateX(-50%);
+      position: absolute; top: 100%; left: 72%;
+      z-index: 2;
       margin-top: 4px;
       font-size: 11px; font-weight: 900; letter-spacing: 1.2px;
       color: #cfe0ff;
       white-space: nowrap;
       text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     }
+    .coop-chain-tag-lines { transform: rotate(-58deg) translateX(-50%); }
+    .coop-chain-tag-alt { transform: rotate(58deg) translateX(-50%); }
     .coop-chain-tag span { color: #fff; }
-    /* The snap: the two halves fling apart and fade, their links flashing
-       the game's "broke it" green for a beat first. */
+    /* The snap: the two halves fling apart along their own diagonal and
+       fade, their links flashing the game's "broke it" green for a beat
+       first. */
     .coop-chain-row.broken .coop-chain-bar-half .link {
       border-color: #7dffa0;
       box-shadow: 0 0 10px rgba(57,255,106,0.8), inset 0 0 6px rgba(57,255,106,0.35);
@@ -1609,9 +1640,54 @@
     .coop-chain-row.broken .coop-chain-bar-half.right { transform: translate(70%, -10px) rotate(35deg); opacity: 0; }
     .coop-chain-row.broken .coop-chain-tag { color: #39ff6a; }
     .coop-chain-row.broken .coop-chain-tag span { color: #39ff6a; }
-    .coop-chains-hint {
-      font-size: 10px; color: #9fb0c8; letter-spacing: 0.5px;
+    /* Stress cracks + sparks right at the X's centre - always faintly
+       flickering while chained, foreshadowing the snap per the brief,
+       independent of either chain's own break state. Three short jagged
+       strokes (built from thin rotated divs via box-shadow, no extra
+       markup needed beyond the span itself) plus three small glowing dots. */
+    .coop-chain-fracture {
+      position: absolute; top: 50%; left: 50%;
+      width: 1px; height: 1px;
+      z-index: 2;
     }
+    .coop-chain-fracture .crack {
+      position: absolute; top: 0; left: 0;
+      width: 16px; height: 2px;
+      background: rgba(159,227,255,0.8);
+      box-shadow: 0 0 4px rgba(91,232,255,0.7);
+      transform-origin: 0 50%;
+      animation: coopFractureFlicker 2.6s ease-in-out infinite;
+    }
+    .crack-1 { transform: rotate(18deg) translateX(-4px); animation-delay: 0s; }
+    .crack-2 { transform: rotate(-150deg) translateX(-2px); animation-delay: 0.6s; width: 12px; }
+    .crack-3 { transform: rotate(95deg) translateX(-6px); animation-delay: 1.2s; width: 10px; }
+    @keyframes coopFractureFlicker { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.85; } }
+    .coop-chain-fracture .spark {
+      position: absolute;
+      width: 3px; height: 3px; border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 6px 1px rgba(159,227,255,0.9);
+      animation: coopSparkPulse 1.8s ease-in-out infinite;
+    }
+    .spark-1 { top: -6px; left: 10px; animation-delay: 0.2s; }
+    .spark-2 { top: 7px; left: -9px; animation-delay: 0.9s; }
+    .spark-3 { top: 9px; left: 5px; animation-delay: 1.4s; }
+    @keyframes coopSparkPulse { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.1); } }
+    /* Loose padlock outlines anchoring all four corners - stroke only, no
+       filled body, matching the chains' own hollow sketch style. */
+    .coop-chain-lock {
+      position: absolute;
+      width: 20px; height: 20px;
+      fill: none; stroke: #9fe3ff; stroke-width: 1.6;
+      stroke-linecap: round; stroke-linejoin: round;
+      filter: drop-shadow(0 0 3px rgba(91,232,255,0.6));
+      z-index: 2;
+      opacity: 0.9;
+    }
+    .coop-chain-lock-tl { top: 6%; left: 6%; }
+    .coop-chain-lock-tr { top: 6%; right: 6%; transform: scaleX(-1); }
+    .coop-chain-lock-bl { bottom: 6%; left: 6%; transform: scaleY(-1); }
+    .coop-chain-lock-br { bottom: 6%; right: 6%; transform: scale(-1, -1); }
     /* The actual downed board just dims and desaturates underneath the
        chains overlay. */
     .coop-board-downed .main-canvas,
@@ -5141,98 +5217,39 @@
       100% { opacity: 0; }
     }
 
-    /* EARTH - a pure-CSS wireframe globe (no image assets), styled after a
-       flat line-art reference (grid + outline continents) instead of the
-       earlier filled/shaded sphere. Smaller and pushed further back now -
-       background decoration, not a hero element - and in this game's own
-       cyan/pink instead of plain black linework. Latitude rings stay fixed
-       (a sphere's parallels don't move as it spins around its vertical
-       axis); only the longitude lines and the continent outlines scroll
-       left-to-right, which is what actually reads as "spinning" here. */
+    /* EARTH - a filled, shaded, textured sphere rendered on canvas (see
+       buildVsoEarthTexture/vsoEarthLoop) instead of the earlier pure-CSS
+       wireframe grid - oceans, landmasses, drifting cloud cover and a real
+       day/night terminator with glowing city lights on the dark side,
+       still entirely procedural (no image assets), still this game's own
+       colour language in the chrome around it. Partially cropped off the
+       left edge, sized to read as a presence in the scene without
+       overpowering the two cards it sits beside. */
     .vso-earth-wrap {
       position: absolute;
-      left: -7vw;
+      left: -6vw;
       top: 46%;
       transform: translateY(-50%);
-      width: min(34vw, 420px);
-      height: min(34vw, 420px);
-      opacity: 0.88;
+      width: min(25vw, 360px);
+      height: min(25vw, 360px);
+      opacity: 0.95;
     }
     .vso-earth-atmosphere {
       position: absolute; inset: -5%;
       border-radius: 50%;
-      box-shadow: 0 0 60px 14px rgba(91,232,255,0.22), 0 0 100px 32px rgba(255,51,102,0.08);
-    }
-    /* A lit patch that physically slides across the sphere's face in sync
-       with the grid/continent rotation below it - clipped to the same
-       circle (.vso-earth has overflow:hidden) - the thing that actually
-       reads as "a round lit object turning in space" rather than just a
-       flat pattern scrolling sideways behind a circular mask. */
-    .vso-earth-highlight {
-      position: absolute;
-      top: 8%; left: -30%;
-      width: 55%; height: 84%;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(150,215,255,0.55), transparent 70%);
-      mix-blend-mode: screen;
-      animation: vso-earth-highlight-drift 14s linear infinite;
-    }
-    @keyframes vso-earth-highlight-drift {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(260%); }
+      box-shadow: 0 0 60px 14px rgba(140,180,255,0.18), 0 0 100px 32px rgba(255,255,255,0.06);
     }
     .vso-earth {
       position: absolute; inset: 0;
       border-radius: 50%;
       overflow: hidden;
-      border: 1.5px solid rgba(91,232,255,0.55);
+      border: 1.5px solid rgba(255,255,255,0.4);
       box-shadow: inset 0 0 30px 6px rgba(0,0,0,0.7);
     }
-    /* Latitude - fixed, evenly-spaced horizontal rings. */
-    .vso-earth-latitude {
+    .vso-earth-canvas {
       position: absolute; inset: 0;
-      background-image: repeating-linear-gradient(
-        to bottom,
-        transparent 0, transparent 26px,
-        rgba(91,232,255,0.4) 26px, rgba(91,232,255,0.4) 27.5px
-      );
-    }
-    /* Longitude - evenly-spaced vertical lines that scroll to sell the
-       spin (a real meridian curves and converges at the poles; straight
-       lines inside the circular mask plus the edge-darkening shade below
-       read close enough at this size without needing actual 3D). */
-    .vso-earth-longitude {
-      position: absolute; inset: 0;
-      background-image: repeating-linear-gradient(
-        to right,
-        transparent 0, transparent 30px,
-        rgba(91,232,255,0.45) 30px, rgba(91,232,255,0.45) 31.5px
-      );
-      animation: vso-earth-grid-spin 14s linear infinite;
-    }
-    @keyframes vso-earth-grid-spin {
-      from { background-position: 0 0; }
-      to   { background-position: 31.5px 0; }
-    }
-    /* Continent outlines - stroke-only shapes (see the inline SVG), tiled
-       and scrolled at the same pace as the longitude lines above so the
-       whole surface reads as one turning globe. Stylised, not
-       geographically accurate - see the earlier conversation about using a
-       real traced asset if that matters more than the art style. */
-    .vso-earth-continents {
-      position: absolute; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'%3E%3Cg fill='none' stroke='%23ff3366' stroke-width='2.2' opacity='0.9' stroke-linejoin='round'%3E%3Cpath d='M58,66 C80,58 112,64 116,88 C132,94 126,122 104,126 C98,147 68,140 63,119 C44,112 47,87 58,66 Z'/%3E%3Cpath d='M182,146 C208,140 230,156 224,178 C240,188 223,206 206,200 C195,217 168,206 174,190 C158,180 170,157 182,146 Z'/%3E%3Cpath d='M86,198 C103,192 120,203 114,219 C120,235 98,240 87,229 C70,232 70,213 86,198 Z'/%3E%3C/g%3E%3C/svg%3E");
-      background-size: 160% 100%;
-      background-repeat: repeat-x;
-      animation: vso-earth-continent-spin 14s linear infinite;
-    }
-    @keyframes vso-earth-continent-spin {
-      from { background-position: 0% 0; }
-      to   { background-position: -160% 0; }
-    }
-    .vso-earth-shade {
-      position: absolute; inset: 0;
-      background: radial-gradient(circle at 34% 30%, transparent 40%, rgba(0,0,0,0.5) 78%, rgba(0,0,0,0.78) 100%);
+      width: 100%; height: 100%;
+      display: block;
     }
     /* Signal pings - rings expanding outward from the globe, reading as a
        broadcast/connection going out, which is the one thing this specific
@@ -5290,21 +5307,26 @@
       to   { transform: rotate(360deg) translateX(min(22vw, 270px)) rotate(-360deg) scaleY(0.45); }
     }
 
+    /* Minimal, strictly monochrome - the one chrome element in this screen
+       that isn't branded cyan/pink (see the title below, which still is). */
     .vso-online-close {
       position: absolute; top: 20px; right: 24px;
       z-index: 5;
-      width: 38px; height: 38px;
+      width: 32px; height: 32px;
       border-radius: 50%;
-      border: 2px solid #5be8ff;
-      background: rgba(10,14,28,0.7);
-      color: #5be8ff;
-      font-size: 16px;
+      border: 1.5px solid rgba(255,255,255,0.5);
+      background: rgba(10,10,14,0.7);
+      color: #fff;
+      font-size: 14px;
       font-weight: 900;
       cursor: pointer;
-      transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
-    .vso-online-close:hover { background: #5be8ff; color: #000; box-shadow: 0 0 15px #5be8ff; }
+    .vso-online-close:hover { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.6); }
 
+    /* ONLINE + its subtitle are the one branded, full-colour element on an
+       otherwise monochrome screen (see .vso-category-card etc. below) -
+       everything else stays desaturated specifically so this keeps popping. */
     .vso-online-title {
       position: relative;
       z-index: 2;
@@ -5318,43 +5340,74 @@
       color: transparent;
       text-shadow: 0 0 30px rgba(91,232,255,0.35);
     }
+    .vso-online-subtitle {
+      position: relative;
+      z-index: 2;
+      margin: 2px 0 0;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      background: linear-gradient(90deg, #5be8ff, #c3a0ff 55%, #ff3366);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      opacity: 0.85;
+    }
 
     .vso-online-categories {
       position: relative;
       z-index: 2;
       display: flex;
-      gap: 28px;
+      gap: 32px;
       flex-wrap: wrap;
       justify-content: center;
       margin: auto 0;
       padding: 40px 20px;
     }
+    /* Strictly desaturated - white/grey only, no cyan or pink anywhere in
+       these cards (see the module comment above .vso-online-title). Bigger
+       than before ("generously sized" per the brief) and with a scanning-
+       reticle hover accent (the four corner brackets below) instead of a
+       colour-tinted glow, since colour is off the table here. */
     .vso-category-card {
-      width: 240px;
+      position: relative;
+      width: 290px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      padding: 32px 20px;
-      border-radius: 16px;
-      border: 2px solid rgba(91,232,255,0.4);
-      background: linear-gradient(160deg, rgba(20,28,52,0.75), rgba(8,12,24,0.85));
-      backdrop-filter: blur(6px);
+      gap: 10px;
+      padding: 40px 26px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(0,0,0,0.35));
+      backdrop-filter: blur(8px);
       cursor: pointer;
       font-family: inherit;
       transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .vso-category-card:hover:not(:disabled) {
-      transform: translateY(-6px);
-      border-color: #5be8ff;
-      box-shadow: 0 10px 30px rgba(91,232,255,0.25);
+      transform: translateY(-6px) scale(1.03);
+      border-color: rgba(255,255,255,0.8);
+      box-shadow: 0 10px 34px rgba(255,255,255,0.14);
     }
-    .vso-category-versus:hover:not(:disabled) { border-color: #ff3366; box-shadow: 0 10px 30px rgba(255,51,102,0.3); }
-    .vso-category-name { font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; }
-    .vso-category-desc { font-size: 12px; color: #d6d6da; text-align: center; line-height: 1.4; }
-    .vso-category-soon { opacity: 0.45; cursor: not-allowed; }
+    /* Corner-bracket "scanning reticle" - four tiny L-shaped marks that fade
+       in on hover/focus, independent of the card's own border so it reads
+       as a targeting overlay rather than a thicker border. */
+    .vso-category-card .vso-card-reticle {
+      position: absolute; inset: 8px; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s ease;
+    }
+    .vso-category-card:hover .vso-card-reticle, .vso-category-card:focus-visible .vso-card-reticle { opacity: 1; }
+    .vso-card-reticle span { position: absolute; width: 14px; height: 14px; border-color: #fff; border-style: solid; border-width: 0; }
+    .vso-card-reticle span:nth-child(1) { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+    .vso-card-reticle span:nth-child(2) { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+    .vso-card-reticle span:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+    .vso-card-reticle span:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+    .vso-category-name { font-size: 24px; font-weight: 900; letter-spacing: 4px; color: #fff; }
+    .vso-category-desc { font-size: 12px; color: #a0a0a0; text-align: center; line-height: 1.5; }
+    .vso-category-soon { opacity: 0.4; cursor: not-allowed; }
     .vso-category-soon:hover { transform: none; }
-    .vso-queue-count { font-size: 11px; color: #e8e8ea; font-weight: 700; letter-spacing: 0.5px; margin-top: 4px; }
+    .vso-queue-count { font-size: 11px; color: #a0a0a0; font-weight: 700; letter-spacing: 1px; margin-top: 6px; text-transform: uppercase; }
 
     /* CO-OP mode-select screen - same card look as the category screen, one
        level deeper (see vsOnlineOpenCategory). */
@@ -7212,11 +7265,7 @@
         <div class="vso-satellite vso-sat-2"></div>
         <div class="vso-earth-atmosphere"></div>
         <div class="vso-earth">
-          <div class="vso-earth-latitude"></div>
-          <div class="vso-earth-longitude"></div>
-          <div class="vso-earth-continents"></div>
-          <div class="vso-earth-highlight"></div>
-          <div class="vso-earth-shade"></div>
+          <canvas class="vso-earth-canvas" id="vso-earth-canvas"></canvas>
         </div>
         <div class="vso-signal-ring"></div>
         <div class="vso-signal-ring vso-sig-2"></div>
@@ -7225,18 +7274,22 @@
 
     <button class="vso-online-close" onclick="vsOnlineCancel()">X</button>
     <h1 class="vso-online-title">ONLINE</h1>
+    <p class="vso-online-subtitle">MULTIPLAYER LOBBY</p>
 
     <!-- CATEGORY SELECT - the whole reason this got its own full screen
          instead of staying a small popup. -->
     <div id="vso-online-categories" class="vso-online-categories">
       <button type="button" class="vso-category-card vso-category-versus" onclick="vsOnlineOpenCategory('versus')">
+        <div class="vso-card-reticle"><span></span><span></span><span></span><span></span></div>
         <span class="vso-category-name">VERSUS</span>
         <span class="vso-category-desc">1v1 - Quick Match or a room code with a friend</span>
         <span class="vso-queue-count" id="vso-queue-count-versus">&hellip;</span>
       </button>
       <button type="button" class="vso-category-card" onclick="vsOnlineOpenCategory('coop')">
+        <div class="vso-card-reticle"><span></span><span></span><span></span><span></span></div>
         <span class="vso-category-name">CO-OP</span>
         <span class="vso-category-desc">Team up and survive together</span>
+        <span class="vso-queue-count" id="vso-queue-count-coop">&hellip;</span>
       </button>
     </div>
 
@@ -8514,29 +8567,47 @@
          appears centred over THAT board's own matrix instead of bridging
          the gap between both. -->
     <div id="coop-chains-bridge">
-      <!-- Two real chain bars stretched across the board, one per break
-           condition - each is built as two halves so it can visibly SNAP
-           apart (fly outward + fade, see coopBreakChainFx) the instant its
-           own condition is met, instead of just fading a label out. -->
-      <div class="coop-chain-row" id="coop-chain-lines">
+      <!-- Two lightweight, hollow, hand-drawn chains crossing the board in
+           an X - one per break condition, each built as two halves meeting
+           at the centre so it can visibly SNAP apart (fly outward along its
+           own diagonal + fade, see coopBreakChainFx) the instant its own
+           condition is met. Diagonal is just the same proven left/right
+           chain-bar-half technique from before, rotated - a half's own
+           translateX break animation happens in ITS rotated coordinate
+           space, so it already flies outward along the diagonal with no
+           extra work. -->
+      <div class="coop-chain-row coop-chain-diag-a" id="coop-chain-lines">
         <div class="coop-chain-bar-half left">
-          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
+          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
         </div>
         <div class="coop-chain-bar-half right">
-          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
+          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
         </div>
-        <div class="coop-chain-tag">LINES <span id="coop-chain-lines-val">0/40</span></div>
+        <div class="coop-chain-tag coop-chain-tag-lines">LINES <span id="coop-chain-lines-val">0/40</span></div>
       </div>
+      <div class="coop-chain-row coop-chain-diag-b" id="coop-chain-alt">
+        <div class="coop-chain-bar-half left">
+          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
+        </div>
+        <div class="coop-chain-bar-half right">
+          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
+        </div>
+        <div class="coop-chain-tag coop-chain-tag-alt">ALTITUDE <span id="coop-chain-alt-val">0/60m</span></div>
+      </div>
+      <!-- Stress cracks + sparks at the X's centre - always faintly present
+           while chained (foreshadowing the snap to come), independent of
+           either chain's own break state. Pure CSS, no per-link markup. -->
+      <div class="coop-chain-fracture" aria-hidden="true">
+        <span class="crack crack-1"></span><span class="crack crack-2"></span><span class="crack crack-3"></span>
+        <span class="spark spark-1"></span><span class="spark spark-2"></span><span class="spark spark-3"></span>
+      </div>
+      <!-- Loose padlock outlines anchoring all four corners - simple hollow
+           sketch, no filled metal. -->
+      <svg class="coop-chain-lock coop-chain-lock-tl" viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none"/><rect x="5" y="11" width="14" height="10" rx="2" fill="none"/></svg>
+      <svg class="coop-chain-lock coop-chain-lock-tr" viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none"/><rect x="5" y="11" width="14" height="10" rx="2" fill="none"/></svg>
+      <svg class="coop-chain-lock coop-chain-lock-bl" viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none"/><rect x="5" y="11" width="14" height="10" rx="2" fill="none"/></svg>
+      <svg class="coop-chain-lock coop-chain-lock-br" viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none"/><rect x="5" y="11" width="14" height="10" rx="2" fill="none"/></svg>
       <div class="coop-chains-title" id="coop-chains-title">CHAINED</div>
-      <div class="coop-chain-row" id="coop-chain-alt">
-        <div class="coop-chain-bar-half left">
-          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
-        </div>
-        <div class="coop-chain-bar-half right">
-          <span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span><span class="link"></span>
-        </div>
-        <div class="coop-chain-tag">ALTITUDE <span id="coop-chain-alt-val">0/60m</span></div>
-      </div>
       <div class="coop-chains-hint" id="coop-chains-hint">The team breaks these</div>
     </div>
     <div id="coop-connector" style="display:none;">
@@ -8922,9 +8993,30 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.184';
+    const GAME_VERSION = '1.186';
 
     const PATCH_NOTES = [
+      {
+        version: '1.186',
+        date: '12 Oct 2026',
+        title: 'CHAINED redesigned - two diagonal chains instead of stacked bars',
+        changes: [
+          { tag: 'change', text: '<b>Survival Co-op\'s CHAINED screen redesigned.</b> The two break-condition chains (LINES and ALTITUDE) now cross the downed board diagonally in an X instead of stacking as two horizontal bars - same hollow, hand-drawn cyan links as before, just fewer of them (lighter, simpler). CHAINED itself gets a dark backing pill so it stays fully readable with the chains crossing behind it.' },
+          { tag: 'new', text: 'Four loose padlock outlines now anchor the X at the board\'s corners, and small stress cracks/sparks flicker at the centre the whole time you\'re chained - foreshadowing the snap before it happens instead of it coming out of nowhere.' },
+          { tag: 'change', text: 'Each chain still snaps independently and flies apart the instant its own condition is met (clear enough lines, climb enough altitude) - now it flies outward along its own diagonal instead of straight sideways.' }
+        ]
+      },
+      {
+        version: '1.185',
+        date: '12 Oct 2026',
+        title: 'The ONLINE lobby redesigned: a real Earth, and a monochrome interface',
+        changes: [
+          { tag: 'change', text: '<b>The wireframe globe in the ONLINE lobby is a real textured planet now</b> - oceans, landmasses, drifting cloud cover, and a real day/night line with glowing city lights on the dark side, still fully drawn (no image files), still slowly spinning in the background.' },
+          { tag: 'change', text: '<b>The ONLINE lobby screen is monochrome now</b> - the VERSUS/CO-OP cards, their borders, descriptions and queue counts are all strict white/grey, so the ONLINE title and its new "MULTIPLAYER LOBBY" subtitle (still the signature cyan-to-pink gradient) are the only colour on the whole screen instead of competing with it.' },
+          { tag: 'new', text: 'VERSUS and CO-OP are bigger cards now with a scanning-reticle hover effect (four corner brackets fade in) instead of a colour-tinted glow - and CO-OP shows its own live queue count, same as VERSUS already did.' },
+          { tag: 'change', text: 'The X (back) button in the corner is smaller and strictly monochrome now too, instead of being the one cyan element on the screen.' }
+        ]
+      },
       {
         version: '1.184',
         date: '12 Oct 2026',
@@ -13395,6 +13487,173 @@
         return code;
     }
 
+    // ================================================================
+    // VS ONLINE - EARTH (canvas) - a filled, textured, lit sphere for the
+    // lobby backdrop instead of the earlier line-art wireframe. Still fully
+    // procedural (no image assets): a wide "equirectangular-ish" texture is
+    // drawn once into an offscreen canvas, then each frame a horizontally
+    // scrolled window of it is drawn into the circular on-screen canvas -
+    // the same "scroll a flat strip behind a circular mask" trick the old
+    // wireframe version used, just with filled continents/clouds instead of
+    // outline-only linework, plus a real day/night terminator and city
+    // lights layered on top at draw time. Only ever running while the
+    // ONLINE lobby is actually open (see startVsoEarth/stopVsoEarth, called
+    // from openVsOnlineLobby/vsOnlineCancel) - no reason to spend a rAF
+    // loop on a sphere nobody can see.
+    // ================================================================
+    const VSO_EARTH_TEX_W = 480, VSO_EARTH_TEX_H = 240;
+    let vsoEarthTexCanvas = null, vsoEarthCloudTexCanvas = null, vsoEarthCityLights = [];
+
+    // A handful of overlapping-circle "landmasses" - stylised, not
+    // geographically accurate (same honesty as the old outline version's
+    // own comment). Positions are fixed/deterministic so the planet looks
+    // the same every time the lobby opens, only its rotation differs.
+    const VSO_EARTH_CONTINENTS = [
+        { cx: 55, cy: 95, r: 34 }, { cx: 80, cy: 72, r: 24 }, { cx: 38, cy: 128, r: 20 },
+        { cx: 215, cy: 58, r: 28 }, { cx: 242, cy: 86, r: 32 }, { cx: 208, cy: 102, r: 18 },
+        { cx: 335, cy: 92, r: 38 }, { cx: 378, cy: 68, r: 24 }, { cx: 362, cy: 128, r: 20 },
+        { cx: 300, cy: 158, r: 16 }, { cx: 150, cy: 170, r: 14 }
+    ];
+
+    function buildVsoEarthTexture() {
+        const tex = document.createElement('canvas');
+        tex.width = VSO_EARTH_TEX_W; tex.height = VSO_EARTH_TEX_H;
+        const tctx = tex.getContext('2d');
+        const ocean = tctx.createLinearGradient(0, 0, 0, VSO_EARTH_TEX_H);
+        ocean.addColorStop(0, '#0d4566'); ocean.addColorStop(0.5, '#155a82'); ocean.addColorStop(1, '#0d4566');
+        tctx.fillStyle = ocean;
+        tctx.fillRect(0, 0, VSO_EARTH_TEX_W, VSO_EARTH_TEX_H);
+
+        tctx.fillStyle = '#356b3f';
+        VSO_EARTH_CONTINENTS.forEach(c => { tctx.beginPath(); tctx.arc(c.cx, c.cy, c.r, 0, Math.PI * 2); tctx.fill(); });
+        // Terrain highlight - a lighter patch inside each landmass so it
+        // doesn't read as one flat green blob.
+        tctx.fillStyle = 'rgba(150,190,120,0.4)';
+        VSO_EARTH_CONTINENTS.forEach(c => { tctx.beginPath(); tctx.arc(c.cx - c.r * 0.25, c.cy - c.r * 0.25, c.r * 0.5, 0, Math.PI * 2); tctx.fill(); });
+        // Polar ice caps.
+        tctx.fillStyle = 'rgba(232,244,255,0.9)';
+        tctx.fillRect(0, 0, VSO_EARTH_TEX_W, 12);
+        tctx.fillRect(0, VSO_EARTH_TEX_H - 12, VSO_EARTH_TEX_W, 12);
+        vsoEarthTexCanvas = tex;
+
+        // City lights, authored inside each landmass - only actually drawn
+        // on the night side at render time (see vsoEarthLoop).
+        vsoEarthCityLights = [];
+        VSO_EARTH_CONTINENTS.forEach(c => {
+            const count = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2, d = Math.random() * c.r * 0.65;
+                vsoEarthCityLights.push({ x: c.cx + Math.cos(a) * d, y: c.cy + Math.sin(a) * d, phase: Math.random() * Math.PI * 2 });
+            }
+        });
+    }
+
+    // Cloud cover on its own texture so it can drift at a different speed
+    // than the landmasses beneath it - real parallax, not just one scrolling
+    // layer painted to look like two.
+    function buildVsoEarthClouds() {
+        const tex = document.createElement('canvas');
+        tex.width = VSO_EARTH_TEX_W; tex.height = VSO_EARTH_TEX_H;
+        const tctx = tex.getContext('2d');
+        tctx.fillStyle = 'rgba(255,255,255,0.55)';
+        [[30, 50, 20], [100, 150, 26], [175, 45, 16], [255, 155, 24], [320, 55, 18], [405, 125, 22], [440, 70, 14], [60, 190, 15]]
+            .forEach(([x, y, r]) => { tctx.beginPath(); tctx.arc(x, y, r, 0, Math.PI * 2); tctx.fill(); });
+        vsoEarthCloudTexCanvas = tex;
+    }
+
+    let vsoEarthCanvas = null, vsoEarthCtx = null, vsoEarthRunning = false, vsoEarthRafId = null;
+    const VSO_EARTH_SIZE = 320;
+
+    function initVsoEarthCanvas() {
+        vsoEarthCanvas = document.getElementById('vso-earth-canvas');
+        if (!vsoEarthCanvas) return;
+        vsoEarthCtx = vsoEarthCanvas.getContext('2d');
+        if (!vsoEarthTexCanvas) buildVsoEarthTexture();
+        if (!vsoEarthCloudTexCanvas) buildVsoEarthClouds();
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        vsoEarthCanvas.width = VSO_EARTH_SIZE * dpr;
+        vsoEarthCanvas.height = VSO_EARTH_SIZE * dpr;
+        vsoEarthCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function vsoEarthLoop(ts) {
+        if (!vsoEarthRunning || !vsoEarthCtx) return;
+        const ctx = vsoEarthCtx;
+        const size = VSO_EARTH_SIZE;
+        ctx.clearRect(0, 0, size, size);
+
+        const scale = size / VSO_EARTH_TEX_H;
+        const drawW = VSO_EARTH_TEX_W * scale;
+        const y = (size - VSO_EARTH_TEX_H * scale) / 2;
+        // Clockwise rotation - a slow, continuous left-to-right scroll of
+        // the texture inside the circular clip (see the module comment).
+        const landOffsetPx = ((ts / 1000) * 14) % VSO_EARTH_TEX_W;
+        const cloudOffsetPx = ((ts / 1000) * 9) % VSO_EARTH_TEX_W;
+
+        ctx.save();
+        ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2); ctx.clip();
+
+        const landX = -((landOffsetPx * scale) % drawW);
+        ctx.drawImage(vsoEarthTexCanvas, landX, y, drawW, VSO_EARTH_TEX_H * scale);
+        ctx.drawImage(vsoEarthTexCanvas, landX + drawW, y, drawW, VSO_EARTH_TEX_H * scale);
+
+        const cloudX = -((cloudOffsetPx * scale) % drawW);
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(vsoEarthCloudTexCanvas, cloudX, y, drawW, VSO_EARTH_TEX_H * scale);
+        ctx.drawImage(vsoEarthCloudTexCanvas, cloudX + drawW, y, drawW, VSO_EARTH_TEX_H * scale);
+        ctx.globalAlpha = 1;
+
+        // Day/night terminator - a soft diagonal-reading shade from a lit
+        // limb on the left to full night on the right, same spot every
+        // frame (the TEXTURE turns under it, the lighting itself doesn't).
+        const shade = ctx.createLinearGradient(0, 0, size, 0);
+        shade.addColorStop(0, 'rgba(255,255,255,0.1)');
+        shade.addColorStop(0.42, 'rgba(0,0,0,0)');
+        shade.addColorStop(0.6, 'rgba(0,0,0,0.5)');
+        shade.addColorStop(1, 'rgba(0,0,0,0.82)');
+        ctx.fillStyle = shade;
+        ctx.fillRect(0, 0, size, size);
+
+        // City lights - only visible where they currently land on the
+        // night side (the shaded >=0.58 band above), twinkling.
+        vsoEarthCityLights.forEach(light => {
+            let lx = ((light.x - landOffsetPx) % VSO_EARTH_TEX_W + VSO_EARTH_TEX_W) % VSO_EARTH_TEX_W;
+            let screenX = landX + lx * scale;
+            if (screenX < -5) screenX += drawW;
+            if (screenX > size + 5) return;
+            if (screenX / size <= 0.56) return;
+            const screenY = y + light.y * scale;
+            const tw = 0.35 + 0.65 * Math.max(0, Math.sin(ts / 550 + light.phase));
+            ctx.save();
+            ctx.globalAlpha = tw;
+            ctx.fillStyle = '#ffe9a8';
+            ctx.shadowColor = '#ffe9a8'; ctx.shadowBlur = 3;
+            ctx.beginPath(); ctx.arc(screenX, screenY, 1.3, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+
+        ctx.restore();
+        // Rim light - a thin bright edge so the circle reads as a lit
+        // sphere rather than a flat disc with a texture on it.
+        ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2 - 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(170,210,255,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+        vsoEarthRafId = requestAnimationFrame(vsoEarthLoop);
+    }
+
+    function startVsoEarth() {
+        if (vsoEarthRunning) return;
+        if (!vsoEarthCanvas) initVsoEarthCanvas();
+        if (!vsoEarthCtx) return;
+        vsoEarthRunning = true;
+        vsoEarthRafId = requestAnimationFrame(vsoEarthLoop);
+    }
+    function stopVsoEarth() {
+        vsoEarthRunning = false;
+        if (vsoEarthRafId) cancelAnimationFrame(vsoEarthRafId);
+        vsoEarthRafId = null;
+    }
+
     function openVsOnlineLobby() {
         if (!sbClient) { alert('Online play is unavailable right now.'); return; }
         if (!passAuthGate(() => openVsOnlineLobby())) return;
@@ -13407,6 +13666,7 @@
         setModePlaylist('online');
         vsOnlineRefreshQueueCount();
         vsoQueueCountPollTimer = setInterval(vsOnlineRefreshQueueCount, 4000);
+        startVsoEarth();
     }
 
     // The VERSUS card's own entry point - resets the Quick Match/Rooms panel
@@ -13488,17 +13748,17 @@
             const n = count || 0;
             const cardEl = document.getElementById('vso-queue-count-versus');
             if (cardEl) cardEl.innerText = n === 1 ? '1 player in queue' : `${n} players in queue`;
+            // CO-OP's own category card gets the same sentence-style badge
+            // (see the module comment above) - queried unconditionally now,
+            // not just when CO-OP happens to be the open panel.
+            const { count: coopCount } = await sbClient.from('matchmaking_queue').select('id', { count: 'exact', head: true }).eq('status', 'waiting').eq('queue_type', 'coop');
+            const coopN = coopCount || 0;
+            const coopCardEl = document.getElementById('vso-queue-count-coop');
+            if (coopCardEl) coopCardEl.innerText = coopN === 1 ? '1 player in queue' : `${coopN} players in queue`;
             // The in-panel big number reflects whichever queue is actually
             // open right now (VERSUS or CO-OP), not always the VERSUS count.
             const bigEl = document.getElementById('vso-queue-count-quick');
-            if (bigEl) {
-                if (vsoQueueMode === 'versus') {
-                    bigEl.innerText = n;
-                } else {
-                    const { count: coopCount } = await sbClient.from('matchmaking_queue').select('id', { count: 'exact', head: true }).eq('status', 'waiting').eq('queue_type', 'coop');
-                    bigEl.innerText = coopCount || 0;
-                }
-            }
+            if (bigEl) bigEl.innerText = vsoQueueMode === 'versus' ? n : coopN;
         } catch (e) { /* best-effort */ }
     }
 
@@ -13805,6 +14065,7 @@
         }
         setTimeout(() => {
             document.getElementById('vsonline-modal').style.display = 'none';
+            stopVsoEarth();
             if (vsoQueueCountPollTimer) { clearInterval(vsoQueueCountPollTimer); vsoQueueCountPollTimer = null; }
             vsoBroadcastTick = 0;
             vsoMatchFrozen = false;
@@ -14033,6 +14294,7 @@
     function vsOnlineCancel() {
         vsOnlineCancelQueueSearch();
         vsOnlineStopStallWatch();
+        stopVsoEarth();
         if (vsoQueueCountPollTimer) { clearInterval(vsoQueueCountPollTimer); vsoQueueCountPollTimer = null; }
         if (vsoChannel) { sbClient.removeChannel(vsoChannel); vsoChannel = null; }
         vsoRole = null;
