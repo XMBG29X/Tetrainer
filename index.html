@@ -8922,9 +8922,17 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.183';
+    const GAME_VERSION = '1.184';
 
     const PATCH_NOTES = [
+      {
+        version: '1.184',
+        date: '12 Oct 2026',
+        title: 'Better diagnostics for VS Online "Connection failed"',
+        changes: [
+          { tag: 'change', text: 'When VS Online shows "Connection failed - try again," the real reason Supabase gave is now logged to the browser console instead of being silently swallowed - the on-screen message stays simple, but the actual cause is there to check if it happens again.' }
+        ]
+      },
       {
         version: '1.183',
         date: '12 Oct 2026',
@@ -13725,12 +13733,18 @@
         vsoChannel.on('broadcast', { event: 'tab_visibility' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleTabVisibility(payload); });
         vsoChannel.on('presence', { event: 'leave' }, vsOnlinePresenceLeave);
 
-        vsoChannel.subscribe(status => {
+        vsoChannel.subscribe((status, err) => {
             if (status === 'SUBSCRIBED') {
                 vsoChannel.track({ name: getPlayerName() });
                 const statusEl = document.getElementById('vso-status');
                 if (statusEl) statusEl.innerText = 'Waiting for opponent...';
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                // The on-screen message is deliberately generic (not
+                // everyone wants raw error text), but this almost never
+                // reproduces on demand - logging the real status/err here
+                // is the only way to actually know what it was next time
+                // it happens, instead of guessing after the fact.
+                console.error('[vsOnline] channel subscribe failed:', status, err);
                 const statusEl = document.getElementById('vso-status');
                 if (statusEl) statusEl.innerText = 'Connection failed - try again.';
             }
