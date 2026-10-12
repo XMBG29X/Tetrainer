@@ -8922,9 +8922,19 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.182';
+    const GAME_VERSION = '1.183';
 
     const PATCH_NOTES = [
+      {
+        version: '1.183',
+        date: '12 Oct 2026',
+        title: 'Fixed online/co-op matches silently stalling',
+        changes: [
+          { tag: 'fix', text: '<b>VS Online/Co-op could silently freeze mid-match</b> - one player\'s board would appear to just stop (and in Co-op, incoming garbage would stop with it), with no disconnect message and no way to tell what happened. Root cause: a single dropped "I\'m back" network message after a tab-switch could leave the other side stuck thinking you were still away, pausing the match for them forever with nothing to correct it.' },
+          { tag: 'fix', text: 'That status now self-heals off the regular, frequent state updates already flowing between both players instead of relying on that one fragile one-shot message alone - a dropped message can no longer leave a match stuck.' },
+          { tag: 'new', text: 'Added a backup disconnect detector alongside the existing one: if 8 seconds pass with nothing at all arriving from the other side (and they\'re not just legitimately tab-switched), the match now ends with a "disconnected" alert the same way a clean drop already did, instead of hanging silently forever.' }
+        ]
+      },
       {
         version: '1.182',
         date: '12 Oct 2026',
@@ -13239,6 +13249,23 @@
     let vsoBroadcastTick = 0;
     let vsoDisconnectTimer = null;
 
+    // Backup disconnect detector - vsoDisconnectTimer above only fires off
+    // Supabase's own Presence 'leave' event, which needs a clean socket
+    // close to trigger. A connection that goes bad WITHOUT a clean close -
+    // a long packet-loss stretch, a NAT/router timeout, a backgrounded
+    // mobile tab whose socket gets silently throttled instead of closed -
+    // never fires 'leave' at all, so the match just hangs forever with no
+    // alert: the opponent's mirror board freezes on whatever it last
+    // received and (in Co-op) incoming garbage stops along with it, with
+    // nothing telling either side why. This watches wall-clock time since
+    // the last ANYTHING arrived from the other side (see
+    // vsOnlineNoteRemoteActivity, called from every broadcast handler) and
+    // treats prolonged silence as a disconnect on its own, independent of
+    // whether Presence ever notices.
+    const VSO_STALL_TIMEOUT_MS = 8000;
+    let vsoLastRemoteMsgAt = 0;
+    let vsoStallCheckTimer = null;
+
     // Self-healing counters for garbage/attacks (see vsOnlineHandleAttack
     // and the survivalCoop branch of vsOnlineHandleState). A one-shot
     // 'attack'/garbageFired broadcast is fire-and-forget - if it's ever
@@ -13682,16 +13709,20 @@
         vsoChannel = sbClient.channel(`vsroom-${code}`, { config: { presence: { key: vsoMyPresenceKey } } });
 
         vsoChannel.on('presence', { event: 'sync' }, vsOnlinePresenceSync);
-        vsoChannel.on('broadcast', { event: 'match_start' }, ({ payload }) => vsOnlineHandleMatchStart(payload));
+        // Every broadcast handler below also notes the activity (see
+        // vsOnlineNoteRemoteActivity) - ANY message from the other side
+        // proves the connection is actually alive, which is what the
+        // silent-stall watchdog needs, not just the frequent 'state' ones.
+        vsoChannel.on('broadcast', { event: 'match_start' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleMatchStart(payload); });
         // These three only ever fire once a match is actually live, but the
         // listeners have to be registered before subscribe() either way.
-        vsoChannel.on('broadcast', { event: 'state' }, ({ payload }) => vsOnlineHandleState(payload));
-        vsoChannel.on('broadcast', { event: 'attack' }, ({ payload }) => vsOnlineHandleAttack(payload));
-        vsoChannel.on('broadcast', { event: 'game_over' }, () => vsOnlineHandleGameOver());
-        vsoChannel.on('broadcast', { event: 'rematch_request' }, () => vsOnlineHandleRematchRequest());
-        vsoChannel.on('broadcast', { event: 'rematch_start' }, ({ payload }) => vsOnlineHandleRematchStart(payload));
-        vsoChannel.on('broadcast', { event: 'next_round_start' }, ({ payload }) => vsOnlineHandleNextRoundStart(payload));
-        vsoChannel.on('broadcast', { event: 'tab_visibility' }, ({ payload }) => vsOnlineHandleTabVisibility(payload));
+        vsoChannel.on('broadcast', { event: 'state' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleState(payload); });
+        vsoChannel.on('broadcast', { event: 'attack' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleAttack(payload); });
+        vsoChannel.on('broadcast', { event: 'game_over' }, () => { vsOnlineNoteRemoteActivity(); vsOnlineHandleGameOver(); });
+        vsoChannel.on('broadcast', { event: 'rematch_request' }, () => { vsOnlineNoteRemoteActivity(); vsOnlineHandleRematchRequest(); });
+        vsoChannel.on('broadcast', { event: 'rematch_start' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleRematchStart(payload); });
+        vsoChannel.on('broadcast', { event: 'next_round_start' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleNextRoundStart(payload); });
+        vsoChannel.on('broadcast', { event: 'tab_visibility' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleTabVisibility(payload); });
         vsoChannel.on('presence', { event: 'leave' }, vsOnlinePresenceLeave);
 
         vsoChannel.subscribe(status => {
@@ -13764,6 +13795,7 @@
             vsoBroadcastTick = 0;
             vsoMatchFrozen = false;
             startGame(vsoQueueMode === 'coop' ? 'survivalCoop' : 'vsonline');
+            vsOnlineStartStallWatch();
         }, delay);
     }
 
@@ -13986,6 +14018,7 @@
     // opponent you left (see the leave-notice comment below).
     function vsOnlineCancel() {
         vsOnlineCancelQueueSearch();
+        vsOnlineStopStallWatch();
         if (vsoQueueCountPollTimer) { clearInterval(vsoQueueCountPollTimer); vsoQueueCountPollTimer = null; }
         if (vsoChannel) { sbClient.removeChannel(vsoChannel); vsoChannel = null; }
         vsoRole = null;
@@ -14010,6 +14043,7 @@
     // which vsOnlinePresenceLeave below turns into "opponent disconnected"
     // on their end if the match wasn't already over.
     function vsOnlineTeardown() {
+        vsOnlineStopStallWatch();
         if (vsoChannel) { sbClient.removeChannel(vsoChannel); vsoChannel = null; }
         vsoRole = null;
         vsoRoomCode = null;
@@ -14050,21 +14084,58 @@
             const state = vsoChannel.presenceState();
             const otherKeys = Object.keys(state).filter(k => k !== vsoMyPresenceKey);
             if (otherKeys.length >= 1) return;
-
-            if (coopShowingResultsScreen) {
-                // Just disables PLAY AGAIN in place - you already finished
-                // the run and are looking at the results, nothing urgent
-                // enough to yank you back to the menu over (see
-                // coopPlayAgainAllyGone).
-                coopPlayAgainAllyGone();
-            } else if (vsoShowingFinishScreen) {
-                vsOnlineRematchExpired();
-            } else if (!matchResolved) {
-                matchResolved = true;
-                alert(gameMode === 'survivalCoop' ? 'Your ally disconnected.' : 'Your opponent disconnected.');
-                backToMenu();
-            }
+            vsOnlineHandleConfirmedDisconnect();
         }, 12000);
+    }
+
+    // Whatever decided the other side is actually gone (Presence's own
+    // 'leave', or the silent-stall watchdog below) lands here - same
+    // three-way branch either way, so the two detectors can't disagree on
+    // what "gone" means.
+    function vsOnlineHandleConfirmedDisconnect() {
+        if (coopShowingResultsScreen) {
+            // Just disables PLAY AGAIN in place - you already finished the
+            // run and are looking at the results, nothing urgent enough to
+            // yank you back to the menu over (see coopPlayAgainAllyGone).
+            coopPlayAgainAllyGone();
+        } else if (vsoShowingFinishScreen) {
+            vsOnlineRematchExpired();
+        } else if (!matchResolved) {
+            matchResolved = true;
+            alert(gameMode === 'survivalCoop' ? 'Your ally disconnected.' : 'Your opponent disconnected.');
+            backToMenu();
+        }
+    }
+
+    // Records that SOMETHING just arrived from the other side - called from
+    // every incoming broadcast handler. Resets the silent-stall watchdog's
+    // clock; see the VSO_STALL_TIMEOUT_MS comment above for why this exists
+    // alongside (not instead of) Presence's own 'leave' detection.
+    function vsOnlineNoteRemoteActivity() {
+        vsoLastRemoteMsgAt = Date.now();
+    }
+
+    function vsOnlineStartStallWatch() {
+        vsoLastRemoteMsgAt = Date.now();
+        if (vsoStallCheckTimer) clearInterval(vsoStallCheckTimer);
+        vsoStallCheckTimer = setInterval(vsOnlineCheckStall, 2000);
+    }
+
+    function vsOnlineStopStallWatch() {
+        if (vsoStallCheckTimer) { clearInterval(vsoStallCheckTimer); vsoStallCheckTimer = null; }
+    }
+
+    function vsOnlineCheckStall() {
+        if ((gameMode !== 'vsonline' && gameMode !== 'survivalCoop') || !vsoChannel) { vsOnlineStopStallWatch(); return; }
+        if (!vsoMatchStarted || matchResolved) return;
+        // The opponent being legitimately tab-hidden already explains the
+        // silence (see vsoOpponentTabHidden) - that's a known wait, not an
+        // unexplained stall, so don't race the ordinary "waiting to sync"
+        // flow with a disconnect alert.
+        if (vsoOpponentTabHidden) return;
+        if (Date.now() - vsoLastRemoteMsgAt < VSO_STALL_TIMEOUT_MS) return;
+        vsOnlineStopStallWatch();
+        vsOnlineHandleConfirmedDisconnect();
     }
 
     // Fires on document.hidden changing (see the visibilitychange listener
@@ -14172,7 +14243,19 @@
             // (see vsOnlineHandleState).
             totalPieces: p.totalPieces,
             totalDamage: p.totalDamage,
-            playTimeMs: p.playTimeMs
+            playTimeMs: p.playTimeMs,
+            // My own tab-hidden flag, carried on every snapshot the same
+            // way attackTotal is - see vsOnlineHandleState's self-heal.
+            // The one-shot 'tab_visibility' broadcast this normally rides
+            // on is fire-and-forget; if THAT specific message is ever
+            // dropped (right as I come back from being backgrounded, say),
+            // the other side's vsoOpponentTabHidden gets stuck true
+            // forever with nothing to correct it - vsoSyncPaused on their
+            // end never clears, their board looks permanently frozen to
+            // them, and (in Co-op) incoming garbage stops right along with
+            // it. This lets the very next regular snapshot fix that
+            // automatically instead of the match just hanging.
+            hidden: vsoLocalTabHidden
         };
         if (playfieldChanged) payload.playfield = p.playfield;
         // SURVIVAL CO-OP - the ally's wave/garbage-dial readout (see
@@ -14204,6 +14287,14 @@
     function vsOnlineHandleState(payload) {
         const p2 = players[1];
         if (!p2 || !p2.isOnlineMirror) return;
+        // Self-heal for a dropped 'tab_visibility' broadcast - see the
+        // `hidden` field comment in vsOnlineBroadcastState. Only acts on an
+        // actual change, same as vsOnlineHandleTabVisibility itself, so
+        // this is a no-op on every ordinary snapshot.
+        if (typeof payload.hidden === 'boolean' && payload.hidden !== vsoOpponentTabHidden) {
+            vsoOpponentTabHidden = payload.hidden;
+            vsOnlineUpdateSyncPause();
+        }
         // Only sent when the locked-block grid actually changed since the
         // last broadcast (see vsOnlineBroadcastState) - keep whatever grid
         // we already have otherwise, instead of overwriting it with
