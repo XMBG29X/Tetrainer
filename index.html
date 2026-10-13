@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Tetrainer</title>
+  <!-- Player-card name fonts only (see .pc-font-* / NAME_FONTS) - nothing
+       else in the game uses a custom webfont, everything else stays on the
+       system font stack it always has. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&family=Monoton&display=swap" rel="stylesheet">
   <style>
     body {
       background-color: #000;
@@ -5523,6 +5529,43 @@
     .vso-stat-value { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: 1px; line-height: 1.1; }
     .vso-stat-label { font-size: 10px; font-weight: 700; color: #ccc; letter-spacing: 1.5px; margin-top: 4px; }
 
+    /* RANKED category card gets its own gold accent instead of the plain
+       white hover every other card uses - the one card on this screen
+       that's meant to read as "the serious one". */
+    .vso-category-ranked { border-color: rgba(255,216,77,0.35); }
+    .vso-category-ranked:hover:not(:disabled) { border-color: #ffd84d; box-shadow: 0 10px 34px rgba(255,216,77,0.3); }
+    .vso-category-ranked .vso-category-name { color: #ffd84d; }
+    .vso-category-ranked .vso-card-reticle span { border-color: #ffd84d; }
+
+    /* ---- RANKED tier card (inside the Quick Match tab - see
+       vsOnlineRefreshRankedUI) ---- */
+    .rk-tier-card {
+      display: flex; align-items: center; gap: 14px; width: 100%;
+      padding: 14px 16px; margin: 4px 0 10px;
+      border-radius: 12px; border: 1px solid rgba(255,216,77,0.3);
+      background: linear-gradient(135deg, rgba(255,216,77,0.08), rgba(255,255,255,0.02));
+    }
+    .rk-tier-crest { width: 54px; height: 54px; flex-shrink: 0; }
+    .rk-crest-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 5px currentColor); }
+    .rk-gm-spin { transform-origin: 50px 50px; animation: levelTierSpin 7s linear infinite; }
+    .rk-gm-spin-rev { transform-origin: 50px 50px; animation: levelTierSpin 5s linear infinite reverse; }
+    .rk-tier-info { flex: 1; min-width: 0; text-align: left; }
+    .rk-tier-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .rk-tier-name { font-size: 16px; font-weight: 900; letter-spacing: 1.5px; }
+    .rk-tier-global {
+      font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #1a0411;
+      background: linear-gradient(90deg, #ffd84d, #ff9ecf); border-radius: 999px; padding: 2px 8px;
+    }
+    .rk-tier-rp { font-size: 12px; color: #ccc; font-weight: 700; margin: 2px 0 6px; }
+    .rk-tier-progress-bar { width: 100%; height: 6px; border-radius: 999px; background: #333344; overflow: hidden; }
+    .rk-tier-progress-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; background: #ffd84d; }
+    .rk-tier-progress-text { font-size: 9.5px; color: #999; margin-top: 4px; letter-spacing: 0.3px; }
+    .rk-auto-format {
+      font-size: 10.5px; font-weight: 900; letter-spacing: 1px; color: #ffd84d;
+      background: rgba(255,216,77,0.1); border: 1px solid rgba(255,216,77,0.3);
+      border-radius: 999px; padding: 6px 14px; margin-bottom: 6px;
+    }
+
     /* VS ONLINE MENU - QUICK MATCH / ROOMS tabs (see vsOnlineSwitchTab). */
     .vso-menu-tabs { display: flex; gap: 8px; width: 100%; }
     .vso-menu-tab {
@@ -6756,6 +6799,11 @@
        outline, so the apex tier reads as two independent moving layers
        instead of one shape rigidly spinning as a single unit. */
     .level-tier-spin-rev { animation-direction: reverse; animation-duration: 4s; }
+    /* The sub-level dashed ring (see levelTierShapeSvg's subStep branch) -
+       slow, steady rotation so an upgraded badge visibly has SOMETHING
+       moving on it at a glance, without being as busy as ZENITH's full
+       double-spin above. */
+    .level-tier-sub-spin { transform-origin: 50px 50px; animation: levelTierSpin 9s linear infinite; }
     /* Soft glow pulse for the upper-mid tiers (PHALANX/NEXUS/SINGULARITY/
        ASCENDANT) - ZENITH gets the full spin treatment above instead of
        this, everything below tier 7 stays a static glow. */
@@ -6899,6 +6947,119 @@
     }
     .badge-legend-tile .level-tier-svg { width: 64px; height: 64px; overflow: visible; filter: drop-shadow(0 0 6px currentColor); }
     .badge-legend-tile-range { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; color: #fff; }
+
+    /* ---------------- PLAYER PROFILE CARD + CUSTOMIZATION LOCKER ---------------- */
+    #profile-card-modal, #customization-modal {
+      display: none; position: fixed; inset: 0; z-index: 2400;
+      background: rgba(6,6,10,0.88); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    .pc-box {
+      width: 440px; max-width: 94vw; max-height: 90vh; overflow-y: auto;
+      background: #1b1b28; border: 2px solid rgba(255,255,255,0.15); border-radius: 16px;
+      padding: 20px; position: relative;
+    }
+    .pc-close-btn { position: absolute; top: 10px; right: 14px; z-index: 3; }
+
+    /* Banner - rank-tier background (pc-rankbg-N, picked by rank index, see
+       renderProfileCard) sits UNDER a frame class (pc-frame-*, the player's
+       equipped border/edge VFX) and the identity row on top of both. Pure
+       CSS gradients/animations throughout, no image assets - same
+       convention as the rest of this file's decorative backgrounds. */
+    .pc-banner { position: relative; border-radius: 12px; overflow: hidden; padding: 18px; min-height: 120px; display: flex; align-items: flex-end; }
+    .pc-banner-art { position: absolute; inset: 0; z-index: 0; }
+    .pc-identity { position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; }
+    .pc-avatar {
+      width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 35% 30%, #ff6fc2, #ff3399 70%);
+      color: #1a0411; font-size: 22px; font-weight: 900;
+      border: 2px solid rgba(255,255,255,0.4);
+    }
+    .pc-identity-text { min-width: 0; }
+    .pc-name { font-size: 20px; font-weight: 900; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.6); word-break: break-word; }
+    .pc-font-default { font-family: inherit; }
+    .pc-font-cyber { font-family: 'Share Tech Mono', monospace; letter-spacing: 1px; }
+    .pc-font-stencil { font-family: 'Press Start 2P', monospace; font-size: 15px !important; line-height: 1.5; }
+    .pc-font-script { font-family: 'Monoton', cursive; letter-spacing: 1px; font-weight: 400; }
+    .pc-crest-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    .pc-level-badge, .pc-rank-crest { width: 36px; height: 36px; }
+
+    /* Rank tier banner art - one gradient per RANK_TIERS index (0-8),
+       loosely matching each tier's flavor (molten bronze, frost silver,
+       starry platinum cosmos, deep nebula masters...). */
+    .pc-rankbg-0 .pc-banner-art { background: linear-gradient(160deg, #3a3f4a, #1a1c22); }
+    .pc-rankbg-1 .pc-banner-art { background: radial-gradient(circle at 30% 20%, #e0985a, #5a2f12 70%); }
+    .pc-rankbg-2 .pc-banner-art { background: linear-gradient(160deg, #cdd8e4, #5a6678 70%); }
+    .pc-rankbg-3 .pc-banner-art { background: radial-gradient(circle at 70% 20%, #ffe08a, #7a5a0a 75%); }
+    .pc-rankbg-4 .pc-banner-art { background: linear-gradient(160deg, #0f6a80, #0a1a2a); }
+    .pc-rankbg-4 .pc-banner-art::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent), radial-gradient(1.5px 1.5px at 60% 60%, #fff, transparent), radial-gradient(1px 1px at 80% 20%, #fff, transparent), radial-gradient(1px 1px at 40% 80%, #fff, transparent); opacity: 0.6; }
+    .pc-rankbg-5 .pc-banner-art { background: linear-gradient(160deg, #1a2a4a, #050812); }
+    .pc-rankbg-6 .pc-banner-art { background: radial-gradient(circle at 50% 100%, #1a4a2a, #06120a 75%); }
+    .pc-rankbg-7 .pc-banner-art { background: radial-gradient(circle at 50% 30%, #3a1a5a, #0a0612 75%); }
+    .pc-rankbg-8 .pc-banner-art {
+      background: radial-gradient(circle at 50% 40%, #2a1a0a, #000 75%);
+      animation: pcGmAura 4s ease-in-out infinite;
+    }
+    @keyframes pcGmAura {
+      0%, 100% { box-shadow: inset 0 0 60px rgba(255,216,77,0.25); }
+      50%      { box-shadow: inset 0 0 90px rgba(255,216,77,0.5); }
+    }
+
+    /* Banner FRAME (the border/edge VFX wrapping the whole card) - 4
+       equippable looks, see BANNER_FRAMES. */
+    .pc-frame-carbon { border: 3px solid #2a2a30; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 5px); }
+    .pc-frame-neon { border: 2px solid #5be8ff; box-shadow: 0 0 18px rgba(91,232,255,0.65), inset 0 0 16px rgba(91,232,255,0.3); animation: pcNeonPulse 2.2s ease-in-out infinite; }
+    @keyframes pcNeonPulse { 0%,100% { box-shadow: 0 0 14px rgba(91,232,255,0.5), inset 0 0 12px rgba(91,232,255,0.22); } 50% { box-shadow: 0 0 26px rgba(91,232,255,0.85), inset 0 0 22px rgba(91,232,255,0.4); } }
+    .pc-frame-spiked { border: 4px solid #ff3366; border-image: repeating-linear-gradient(90deg, #ff3366 0 10px, #450014 10px 15px) 4; }
+    .pc-frame-gold {
+      border: 3px solid #ffd84d; box-shadow: 0 0 16px rgba(255,216,77,0.5);
+      position: relative;
+    }
+    .pc-frame-gold::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+      background: linear-gradient(120deg, transparent 35%, rgba(255,216,77,0.45) 50%, transparent 65%);
+      background-size: 250% 100%;
+      animation: pcGoldSweep 3s linear infinite;
+    }
+    @keyframes pcGoldSweep { 0% { background-position: 120% 0; } 100% { background-position: -20% 0; } }
+
+    .pc-medals { display: flex; gap: 10px; margin-top: 16px; }
+    .pc-medal-slot {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 12px 6px; border-radius: 10px; text-align: center;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .pc-medal-filled { background: rgba(255,216,77,0.08); border: 1px solid rgba(255,216,77,0.3); color: #ffd84d; }
+    .pc-medal-icon { font-size: 22px; }
+    .pc-medal-name { color: #fff; line-height: 1.3; }
+    .pc-medal-empty { background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); color: #666; }
+
+    /* ---- Customization Locker ---- */
+    .cust-title { font-size: 16px; letter-spacing: 2px; color: #5be8ff; text-align: center; margin: 4px 0 14px; }
+    .cust-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
+    .cust-tab {
+      font-family: inherit; font-size: 10.5px; font-weight: 900; letter-spacing: 0.8px;
+      color: #999; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: all 0.15s;
+    }
+    .cust-tab:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+    .cust-tab.active { color: #1a0411; background: linear-gradient(90deg, #5be8ff, #ff3399); border-color: transparent; }
+    .cust-grid-hint { font-size: 11px; color: #999; text-align: center; margin: 0 0 12px; }
+    .cust-option-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .cust-option {
+      width: 100px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 12px 8px; border-radius: 10px; font-family: inherit;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+      color: #ccc; font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px; text-align: center;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .cust-option:hover { border-color: rgba(91,232,255,0.5); color: #fff; }
+    .cust-option.active { border-color: #5be8ff; background: rgba(91,232,255,0.1); color: #5be8ff; box-shadow: 0 0 12px rgba(91,232,255,0.3); }
+    .cust-option-locked { opacity: 0.45; cursor: not-allowed; }
+    .cust-option-locked:hover { border-color: rgba(255,255,255,0.12); color: #ccc; }
+    .cust-medal-icon { font-size: 22px; }
+    .cust-frame-swatch { width: 100%; height: 36px; border-radius: 6px; }
 
     /* ---------------- LEVEL ROAD, embedded inside ACCOUNT ---------------- */
     /* Same track/node styling as the popup modal (shared .prog-* classes),
@@ -7199,6 +7360,8 @@
         </button>
         <div id="account-badge-menu" class="account-badge-menu">
           <button type="button" onclick="accountBadgeDetails()">Details</button>
+          <button type="button" onclick="openProfileCardModal()">Profile Card</button>
+          <button type="button" onclick="openCustomizationModal()">Customization</button>
           <button type="button" onclick="accountBadgeSwitchAccount()">Switch Account</button>
           <button type="button" class="account-badge-menu-danger" onclick="accountBadgeLogOut()">Log Out</button>
         </div>
@@ -7247,6 +7410,51 @@
         <button type="button" class="prog-close-btn" onclick="closeBadgeLegendModal()" aria-label="Close">&times;</button>
       </div>
       <div class="badge-legend-grid"></div>
+    </div>
+  </div>
+
+  <!-- PLAYER PROFILE CARD - see renderProfileCard/openProfileCardModal.
+       Banner frame/rank background/name font are all driven by classes
+       toggled in JS (pc-frame-*/pc-rankbg-*/pc-font-*) rather than inline
+       styles, so the CSS stays the single source of truth for what each
+       cosmetic actually looks like. -->
+  <div id="profile-card-modal" onclick="if (event.target === this) closeProfileCardModal()">
+    <div class="pc-box">
+      <button type="button" class="prog-close-btn pc-close-btn" onclick="closeProfileCardModal()" aria-label="Close">&times;</button>
+      <div class="pc-banner pc-frame-carbon" id="pc-banner">
+        <div class="pc-banner-art"></div>
+        <div class="pc-identity">
+          <span class="pc-avatar" id="pc-avatar-letter">T</span>
+          <div class="pc-identity-text">
+            <div class="pc-name pc-font-default" id="pc-name">TRAINER</div>
+            <div class="pc-crest-row">
+              <span class="pc-level-badge" id="pc-level-badge"></span>
+              <span class="pc-rank-crest" id="pc-rank-crest"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pc-medals" id="pc-medals"></div>
+      <button type="button" class="menu-btn" style="width:220px; padding:11px 0; margin:14px auto 0; font-size:14px;" onclick="closeProfileCardModal(); openCustomizationModal();">CUSTOMIZE</button>
+    </div>
+  </div>
+
+  <!-- CUSTOMIZATION LOCKER - see openCustomizationModal/switchCustomizationTab.
+       Every pick*() function re-renders the Profile Card's own DOM (see
+       renderProfileCard) immediately on selection, even while that modal
+       isn't open - reopening PROFILE CARD always reflects the latest
+       choice, there's no separate "confirm" step to forget. -->
+  <div id="customization-modal" onclick="if (event.target === this) closeCustomizationModal()">
+    <div class="pc-box cust-box">
+      <button type="button" class="prog-close-btn pc-close-btn" onclick="closeCustomizationModal()" aria-label="Close">&times;</button>
+      <h2 class="cust-title">CUSTOMIZATION LOCKER</h2>
+      <div class="cust-tabs">
+        <button type="button" class="cust-tab active" data-tab="badge" onclick="switchCustomizationTab('badge')">BADGE SLOT</button>
+        <button type="button" class="cust-tab" data-tab="font" onclick="switchCustomizationTab('font')">NAME FONT</button>
+        <button type="button" class="cust-tab" data-tab="frame" onclick="switchCustomizationTab('frame')">BANNER FRAME</button>
+        <button type="button" class="cust-tab" data-tab="medals" onclick="switchCustomizationTab('medals')">SHOWCASE MEDALS</button>
+      </div>
+      <div id="cust-grid" class="cust-grid"></div>
     </div>
   </div>
 
@@ -7427,11 +7635,23 @@
     <!-- CATEGORY SELECT - the whole reason this got its own full screen
          instead of staying a small popup. -->
     <div id="vso-online-categories" class="vso-online-categories">
+      <button type="button" class="vso-category-card vso-category-ranked" onclick="vsOnlineOpenCategory('ranked')">
+        <div class="vso-card-reticle"><span></span><span></span><span></span><span></span></div>
+        <span class="vso-category-name">RANKED</span>
+        <span class="vso-category-desc">Competitive 1v1 - RP, tiers, auto match format</span>
+        <span class="vso-queue-count" id="vso-queue-count-ranked">&hellip;</span>
+      </button>
       <button type="button" class="vso-category-card vso-category-versus" onclick="vsOnlineOpenCategory('versus')">
         <div class="vso-card-reticle"><span></span><span></span><span></span><span></span></div>
-        <span class="vso-category-name">VERSUS</span>
-        <span class="vso-category-desc">1v1 - Quick Match or a room code with a friend</span>
+        <span class="vso-category-name">QUICK MATCH</span>
+        <span class="vso-category-desc">1v1 - Casual, no RP on the line</span>
         <span class="vso-queue-count" id="vso-queue-count-versus">&hellip;</span>
+      </button>
+      <button type="button" class="vso-category-card" onclick="vsOnlineOpenCategory('rooms')">
+        <div class="vso-card-reticle"><span></span><span></span><span></span><span></span></div>
+        <span class="vso-category-name">CUSTOM ROOMS</span>
+        <span class="vso-category-desc">1v1 with a friend, by room code</span>
+        <span class="vso-queue-count">&nbsp;</span>
       </button>
       <button type="button" class="vso-category-card" onclick="vsOnlineOpenCategory('coop')">
         <div class="vso-card-reticle"><span></span><span></span><span></span><span></span></div>
@@ -7487,21 +7707,37 @@
           <div id="vso-tab-quick" class="vso-tab-panel" style="display:flex; flex-direction:column; align-items:center; width:100%;">
             <div id="vso-quick-idle" style="display:flex; flex-direction:column; align-items:center; width:100%;">
               <p style="color:#ddd; font-size:12px; margin:0 0 4px; text-align:center;">Find a random opponent at your chosen format - no code needed.</p>
-              <!-- Both roomy and both placeholders that get wired up for
-                   real - RANK doesn't exist as a system yet (see
-                   vsOnlineRefreshQueueCount's comment), this just reserves
-                   the spot for it. -->
-              <div class="vso-stats-row">
+
+              <!-- RANKED-only tier card - crest, rank name/RP, progress to
+                   the next tier, global standing if ranked top 10, and the
+                   auto-enforced match format. See vsOnlineRefreshRankedUI;
+                   hidden entirely outside the RANKED queue (vsoQueueMode
+                   !== 'ranked' - see vsOnlineOpenPlayPanel). -->
+              <div id="vso-ranked-card" style="display:none; flex-direction:column; align-items:center; width:100%;">
+                <div class="rk-tier-card">
+                  <div class="rk-tier-crest" id="rk-tier-crest"></div>
+                  <div class="rk-tier-info">
+                    <div class="rk-tier-name-row">
+                      <span class="rk-tier-name" id="rk-tier-name">ROOKIE</span>
+                      <span class="rk-tier-global" id="rk-tier-global" style="display:none;">#1 GLOBAL</span>
+                    </div>
+                    <div class="rk-tier-rp" id="rk-tier-rp">0 RP</div>
+                    <div class="rk-tier-progress-wrap" id="rk-tier-progress-wrap">
+                      <div class="rk-tier-progress-bar"><div class="rk-tier-progress-fill" id="rk-tier-progress-fill"></div></div>
+                      <div class="rk-tier-progress-text" id="rk-tier-progress-text"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="rk-auto-format" id="rk-auto-format">Auto Format: FT3 (Enforced by Tier)</div>
+              </div>
+
+              <div class="vso-stats-row" id="vso-stats-row-casual">
                 <div class="vso-stat-box">
                   <span class="vso-stat-value" id="vso-queue-count-quick">&hellip;</span>
                   <span class="vso-stat-label">IN QUEUE</span>
                 </div>
-                <div class="vso-stat-box">
-                  <span class="vso-stat-value" id="vso-rank-value">UNRANKED</span>
-                  <span class="vso-stat-label">RANK</span>
-                </div>
               </div>
-              <button class="menu-btn" style="width:220px; padding:12px 0; margin:8px 0 0; font-size:15px;" onclick="vsOnlineFindMatch()">FIND MATCH</button>
+              <button class="menu-btn" id="vso-find-match-btn" style="width:220px; padding:12px 0; margin:8px 0 0; font-size:15px;" onclick="vsOnlineFindMatch()">FIND MATCH</button>
             </div>
             <div id="vso-quick-searching" style="display:none; flex-direction:column; align-items:center; width:100%; padding:14px 0 4px;">
               <div class="vso-search-spinner vso-search-spinner-big"></div>
@@ -7550,6 +7786,7 @@
       <div id="vso-finish-score" class="vso-finish-score" style="display:none;"></div>
       <div id="vso-finish-matchpoint" style="display:none; color:#ff3366; font-size: 16px; font-weight:900; letter-spacing:2px; margin-bottom: 10px; text-shadow: 0 0 12px rgba(255,51,102,0.7);">MATCH POINT</div>
       <div id="vso-finish-subtitle" style="color:#ccc; font-size: 14px; margin-bottom: 14px; text-align:center; min-height: 18px;"></div>
+      <div id="vso-finish-rp" style="display:none; font-size: 15px; font-weight: 900; letter-spacing: 1px; margin: -6px 0 14px; text-align:center;"></div>
       <!-- Head-to-head round/match stats - built fresh every time the
            finish screen shows (see vsOnlineRenderFinishStats), not static
            markup, since both players' numbers only exist at that moment. -->
@@ -9141,9 +9378,30 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.192';
+    const GAME_VERSION = '1.194';
 
     const PATCH_NOTES = [
+      {
+        version: '1.194',
+        date: '13 Oct 2026',
+        title: 'RANKED system, Profile Cards, and a Customization Locker',
+        changes: [
+          { tag: 'new', text: '<b>RANKED is here.</b> A new tab in the ONLINE lobby (next to QUICK MATCH and the newly-separated CUSTOM ROOMS) with its own RP ladder - ROOKIE through GRANDMASTER, 9 tiers total. Your match format (FT3/FT5/FT7) is picked FOR you by your current tier, shown as a locked "Auto Format" badge instead of a manual choice.' },
+          { tag: 'new', text: '<b>RP changes with an actual underdog curve, not a flat +25/-20.</b> Beating someone rated well above you earns a real upset bonus (up to +60); losing to them costs much less than usual (floors at -5 once they\'re 400+ RP above you); losing to someone rated well BELOW you costs extra instead. See the RP line on the match FINISH screen for exactly what you earned or lost.' },
+          { tag: 'new', text: '<b>GRANDMASTER isn\'t just a rating threshold</b> - it also requires sitting in the live top 10. Drop out of the top 10 and the badge reverts to MASTERS automatically, no separate demotion step.' },
+          { tag: 'new', text: '<b>PLAYER PROFILE CARD</b> - a new panel (Account menu &rarr; Profile Card) showing a rank-themed banner, your equipped border frame, your LEVEL ROAD badge and RANKED crest side by side, and up to 3 showcase achievement medals.' },
+          { tag: 'new', text: '<b>CUSTOMIZATION LOCKER</b> (Account menu &rarr; Customization) - 4 categories: which LEVEL ROAD tier shape to feature, your name\'s font (Classic Sans, Cyberpunk Monospace, Heavy Arcade Stencil, or Sleek Neon Script), your banner\'s frame (Carbon Fiber, Neon Wireframe, Spiked Cyber Plates, or Animated Gold Leaf), and which unlocked achievements to showcase.' },
+          { tag: 'new', text: '<b>8 achievements to start</b>, checked against stats the game already tracks (lifetime wins, total pieces placed, best Survival wave, fastest Sprint, hours played, RANKED tier reached) rather than a whole new tracking system - a first pass, same spirit as the very first LEVEL ROAD badges.' }
+        ]
+      },
+      {
+        version: '1.193',
+        date: '13 Oct 2026',
+        title: 'Sub-level badges now animated',
+        changes: [
+          { tag: 'new', text: 'The dashed ring that appears on a badge once you\'re 5+ levels into a tier now slowly rotates instead of sitting still - a small, clearly visible "this one\'s upgraded" cue on top of the brighter glow it already had.' }
+        ]
+      },
       {
         version: '1.192',
         date: '13 Oct 2026',
@@ -12246,10 +12504,432 @@
         // The sub-level bump: a thin dashed ring riding just outside the
         // shape once you're 5+ levels into the tier - cheap to add to any
         // shape since it's drawn around the frame, not into the shape
-        // itself, and reads clearly as "upgraded" at a glance.
-        if (subStep >= 1 && tier.shape !== 'star') inner += `<circle cx="50" cy="50" r="48" fill="none" stroke="${color}" stroke-width="1.6" stroke-dasharray="4 3" opacity="0.75"/>`;
+        // itself, and reads clearly as "upgraded" at a glance. Slowly
+        // spinning (see .level-tier-sub-spin) rather than static, so the
+        // upgrade itself has its own small bit of motion - distinct from
+        // the glow-only pulse every other high tier gets, and from
+        // ZENITH's own full-shape spin above.
+        if (subStep >= 1 && tier.shape !== 'star') inner += `<g class="level-tier-sub-spin"><circle cx="50" cy="50" r="48" fill="none" stroke="${color}" stroke-width="1.6" stroke-dasharray="4 3" opacity="0.75"/></g>`;
         const pulse = (tierIdx >= 6 || subStep >= 1) && tier.shape !== 'star' ? ' level-tier-pulse' : '';
         return `<svg class="level-tier-svg${pulse}" viewBox="0 0 100 100" style="color:${color}" aria-hidden="true">${inner}</svg>`;
+    }
+
+    // ================================================================
+    // RANKED SYSTEM (VS Online) - a separate ladder from the LEVEL ROAD
+    // above (that's account-wide progress from just playing; this is
+    // competitive standing from winning/losing ranked 1v1s). Deliberately
+    // kept as two independent systems, same reasoning as LEVEL_TIERS vs
+    // BADGE_RANKS: a different shape vocabulary (rankCrestSvg, not
+    // levelTierShapeSvg) so a rank crest and a level badge never look like
+    // the same kind of thing on the profile card.
+    // ================================================================
+    const RANK_RATING_KEY = 'playerRankRating';
+    let playerRankRating = 0;
+    function loadRankRating() {
+        try {
+            const v = parseInt(localStorage.getItem(RANK_RATING_KEY), 10);
+            if (!isNaN(v)) playerRankRating = Math.max(0, v);
+        } catch (e) { /* ignore */ }
+    }
+    function saveRankRating() {
+        try { localStorage.setItem(RANK_RATING_KEY, String(playerRankRating)); } catch (e) { /* ignore */ }
+    }
+
+    // sides: 0 = circle, -1 = GRANDMASTER's own star+crown markup (see
+    // rankCrestSvg), otherwise a regular N-gon via the same generator
+    // LEVEL_TIERS uses. MASTERS and GRANDMASTER share one RP band (2101+) -
+    // which of the two a player actually shows as is decided by
+    // rankTierIndexFor's top-10 check below, not by rating alone.
+    const RANK_TIERS = [
+        { name: 'ROOKIE', min: 0, max: 300, format: 3, color: '#8a93a6', sides: 0 },
+        { name: 'BRONZE', min: 301, max: 600, format: 3, color: '#c47a3d', sides: 6 },
+        { name: 'SILVER', min: 601, max: 900, format: 3, color: '#cdd8e4', sides: 4 },
+        { name: 'GOLD', min: 901, max: 1200, format: 5, color: '#ffc43d', sides: 5 },
+        { name: 'PLATINUM', min: 1201, max: 1500, format: 5, color: '#3dd6e0', sides: 7 },
+        { name: 'DIAMOND', min: 1501, max: 1800, format: 5, color: '#8ec9ff', sides: 8 },
+        { name: 'EMERALD', min: 1801, max: 2100, format: 7, color: '#2fdc7a', sides: 9 },
+        { name: 'MASTERS', min: 2101, max: Infinity, format: 7, color: '#b06bff', sides: 10 },
+        { name: 'GRANDMASTER', min: 2101, max: Infinity, format: 7, color: '#ffd84d', sides: -1 }
+    ];
+    // Grandmaster is NOT reachable by rating alone - 2101+ RP only earns
+    // MASTERS; the GRANDMASTER badge additionally requires being in the
+    // live top 10 (see isPlayerTop10/refreshRankLeaderboard). Falling out
+    // of the top 10 drops the badge straight back to MASTERS with no
+    // separate "demotion" state to track - it's recomputed fresh every call.
+    function rankTierIndexFor(rp, isTop10) {
+        if (rp >= 2101) return isTop10 ? 8 : 7;
+        for (let i = 0; i < 7; i++) if (rp >= RANK_TIERS[i].min && rp <= RANK_TIERS[i].max) return i;
+        return 0;
+    }
+    function rankTierFor(rp, isTop10) { return RANK_TIERS[rankTierIndexFor(rp, isTop10)]; }
+
+    // Elo-style adjustment with underdog protection on the way down and an
+    // upset bonus on the way up, so a single RP number stays meaningful
+    // across a huge skill spread instead of a flat +25/-20 letting a top
+    // player farm free points off brand new ones. ratingDiff is the
+    // OPPONENT's rating minus the PLAYER's - positive means the opponent
+    // was rated higher going in.
+    function computeRatingChange(playerRP, opponentRP, won) {
+        const ratingDiff = opponentRP - playerRP;
+        if (won) {
+            if (ratingDiff > 0) {
+                // Upset victory - beating a higher-rated opponent earns
+                // more than a standard win, capped at +60 total.
+                return Math.min(60, 25 + Math.min(35, Math.floor(ratingDiff / 25)));
+            }
+            return 25; // standard win
+        }
+        if (ratingDiff > 0) {
+            // Loss protection - losing to someone already rated well above
+            // you was expected, so it costs less the bigger that gap is.
+            // 400+ RP higher floors the loss at just -5.
+            return -Math.max(5, 20 - Math.floor(ratingDiff / 30));
+        }
+        // Favoritism penalty - losing to someone rated BELOW you is the
+        // upset-bonus formula mirrored (the spec gives an exact curve for
+        // the win side and only a "-40 RP cap" for this side, so this
+        // mirrors that same shape rather than inventing an unrelated one):
+        // a bigger gap the wrong way costs more, capped at -40 total.
+        return -Math.min(40, 20 + Math.floor(-ratingDiff / 25));
+    }
+
+    // One shared outline per rank tier, same generator functions LEVEL_TIERS
+    // uses (regularPolygonPts/starPts/centerPoints/ptsToStr) so every crest
+    // is centred the same reliable way, but never the SAME shape as a
+    // level-badge tier at the same step - these are two separate systems a
+    // player sees side by side on the profile card.
+    function rankCrestSvg(tierIdx, opts) {
+        opts = opts || {};
+        const tier = RANK_TIERS[tierIdx];
+        const color = opts.color || tier.color;
+        let inner;
+        if (tier.sides === 0) {
+            inner = `<circle cx="50" cy="50" r="44" fill="${color}22" stroke="${color}" stroke-width="5"/>` +
+                `<circle cx="50" cy="50" r="30" fill="none" stroke="${color}" stroke-width="2" opacity="0.7"/>`;
+        } else if (tier.sides === -1) {
+            // GRANDMASTER - extravagant on purpose: a slowly spinning
+            // 6-point star, a counter-spinning dashed halo, and a tiny
+            // crown spike on top, all animated (see .rk-gm-spin/-rev).
+            const star = ptsToStr(starPts(6, 46, 22));
+            inner = `<g class="rk-gm-spin">` +
+                `<polygon points="${star}" fill="${color}2e" stroke="${color}" stroke-width="4"/>` +
+                `</g>` +
+                `<circle cx="50" cy="50" r="33" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 3" opacity="0.8" class="rk-gm-spin-rev"/>` +
+                `<polygon points="50,0 57,15 43,15" fill="${color}"/>`;
+        } else {
+            const pts = ptsToStr(centerPoints(regularPolygonPts(tier.sides, 46)));
+            inner = `<polygon points="${pts}" fill="${color}22" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
+        }
+        return `<svg class="rk-crest-svg" viewBox="0 0 100 100" style="color:${color}" aria-hidden="true">${inner}</svg>`;
+    }
+
+    // How much RP is left before the NEXT tier starts, and that tier's
+    // name - null past EMERALD since MASTERS/GRANDMASTER have no further
+    // tier to climb toward (just more RP within the same open-ended band).
+    function rankProgressInfo(rp) {
+        const idx = rankTierIndexFor(rp, false); // top-10 doesn't change the RP thresholds
+        const tier = RANK_TIERS[idx];
+        if (tier.max === Infinity) return null;
+        const next = RANK_TIERS[idx + 1];
+        return { into: rp - tier.min, span: tier.max - tier.min + 1, needed: tier.max + 1 - rp, nextName: next.name };
+    }
+
+    // Top 10 global standing, reusing the EXISTING public `scores` table
+    // (same one the regular leaderboards already read/write - see
+    // submitScoreToLeaderboard/fetchLeaderboard) instead of a brand new
+    // table, so Ranked needs no extra Supabase setup at all. That table is
+    // insert-only (every submission adds a new row, it never updates one in
+    // place), so a simple "top 10 by value" query would surface the same
+    // player's past ratings as if they were other people - this instead
+    // pulls a batch of the most RECENT rows, keeps only each player's
+    // newest one, then ranks THOSE by value. Good enough for "who's
+    // currently in the top 10", not a perfectly live-updating ladder.
+    let rankTop10Cache = [];
+    let isPlayerTop10 = false;
+    async function refreshRankLeaderboard() {
+        if (!sbClient) return;
+        try {
+            const { data } = await sbClient.from('scores').select('player_name, value, created_at')
+                .eq('mode', 'ranked').eq('speed_label', 'rating')
+                .order('created_at', { ascending: false }).limit(150);
+            const seen = {}; const latest = [];
+            (data || []).forEach(row => {
+                if (!seen[row.player_name]) { seen[row.player_name] = true; latest.push(row); }
+            });
+            latest.sort((a, b) => b.value - a.value);
+            rankTop10Cache = latest.slice(0, 10);
+            const myName = getPlayerName();
+            isPlayerTop10 = rankTop10Cache.some(r => r.player_name === myName);
+        } catch (e) { /* best-effort */ }
+    }
+    // Records the player's CURRENT rating as a new leaderboard row - called
+    // after every ranked match decides (see vsOnlineShowFinishScreen), not
+    // on a timer, same "mutate then push" pattern used elsewhere.
+    function submitRankRating() {
+        if (!currentUser) return;
+        const tier = rankTierFor(playerRankRating, isPlayerTop10);
+        submitScoreToLeaderboard('ranked', 'rating', playerRankRating, tier.name + ' - ' + playerRankRating + ' RP');
+    }
+
+    // ================================================================
+    // ACHIEVEMENTS - unlock state is never stored on its own; every medal
+    // is just a threshold CHECKED against stats the game already tracks
+    // (personalBests/lifetimeStats/playerRankRating), recomputed live
+    // whenever the Profile Card or Customization Locker needs to know
+    // what's unlocked. Simple placeholder icon glyphs for now, same
+    // "exists and reads as a believable first pass" spirit as the very
+    // first LEVEL ROAD badges were.
+    // ================================================================
+    function bestPersonalValueForMode(modePrefix) {
+        let best = 0;
+        Object.keys(personalBests).forEach(k => {
+            if (k.split('@')[0] === modePrefix) best = Math.max(best, personalBests[k].value || 0);
+        });
+        return best;
+    }
+    // Sprint/Puzzles/Boss personal bests store NEGATED time (see
+    // getRunResult's "higher value always wins" comment) so a faster run
+    // compares as better - un-negate it back into a real millisecond time.
+    function bestPersonalTimeMs(modePrefix) {
+        let best = null;
+        Object.keys(personalBests).forEach(k => {
+            if (k.split('@')[0] === modePrefix) {
+                const ms = -(personalBests[k].value || 0);
+                if (best === null || ms < best) best = ms;
+            }
+        });
+        return best;
+    }
+    const ACHIEVEMENTS = [
+        { id: 'first_match', name: 'FIRST BLOOD', desc: 'Play your first VS match (bot or online).', icon: '\u{1FA78}', check: () => lifetimeStats.matchesPlayed >= 1 },
+        { id: 'sub40_sprint', name: 'SUB-40 SPRINT', desc: 'Clear 40 lines in under 40 seconds.', icon: '⚡', check: () => { const t = bestPersonalTimeMs('sprint'); return t !== null && t <= 40000; } },
+        { id: 'wave10', name: '10-WAVE CLUTCH', desc: 'Reach wave 10 in Survival.', icon: '⛰', check: () => bestPersonalValueForMode('survival') >= 10 },
+        { id: 'centurion', name: 'CENTURION', desc: 'Win 100 matches lifetime.', icon: '\u{1F451}', check: () => lifetimeStats.wins >= 100 },
+        { id: 'marathoner', name: 'MARATHONER', desc: 'Play for 10 total hours.', icon: '⏱', check: () => lifetimeStats.totalPlayMs >= 10 * 3600 * 1000 },
+        { id: 'piece_master', name: 'PIECE MASTER', desc: 'Place 50,000 pieces lifetime.', icon: '\u{1F9CA}', check: () => lifetimeStats.totalPieces >= 50000 },
+        { id: 'gold_rank', name: 'GOLD RANK', desc: 'Reach GOLD rank or higher.', icon: '\u{1F947}', check: () => playerRankRating >= 901 },
+        { id: 'diamond_rank', name: 'DIAMOND RANK', desc: 'Reach DIAMOND rank or higher.', icon: '\u{1F48E}', check: () => playerRankRating >= 1501 }
+    ];
+    function achievementById(id) { return ACHIEVEMENTS.find(a => a.id === id) || null; }
+    function unlockedAchievements() {
+        return ACHIEVEMENTS.filter(a => { try { return !!a.check(); } catch (e) { return false; } });
+    }
+
+    // ================================================================
+    // PLAYER PROFILE CARD CUSTOMIZATION - purely cosmetic choices, saved
+    // once to localStorage (see saveCustomization), never synced to
+    // Supabase - same "local only" precedent as playerRankRating/
+    // progression above. badgeTierIdx is which LEVEL ROAD tier shape to
+    // feature on the card (defaults to whatever tier the player's actual
+    // current level is in - see profileCardBadgeTierIdx); medals is up to
+    // 3 ACHIEVEMENT ids.
+    // ================================================================
+    const CUSTOMIZATION_KEY = 'playerCustomization';
+    const CUSTOMIZATION_DEFAULTS = { badgeTierIdx: null, nameFont: 'default', bannerFrame: 'carbon', medals: [] };
+    let playerCustomization = Object.assign({}, CUSTOMIZATION_DEFAULTS);
+    function loadCustomization() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(CUSTOMIZATION_KEY));
+            if (raw) playerCustomization = Object.assign({}, CUSTOMIZATION_DEFAULTS, raw);
+        } catch (e) { /* ignore */ }
+    }
+    function saveCustomization() {
+        try { localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(playerCustomization)); } catch (e) { /* ignore */ }
+    }
+    // Clamped to a tier the player has actually REACHED - picking a feature
+    // badge from a tier you haven't unlocked yet isn't an option here.
+    function profileCardBadgeTierIdx() {
+        const reached = levelTierIndexFor(progression.level);
+        if (playerCustomization.badgeTierIdx === null) return reached;
+        return Math.min(playerCustomization.badgeTierIdx, reached);
+    }
+
+    const NAME_FONTS = [
+        { id: 'default', label: 'CLASSIC SANS', cls: 'pc-font-default' },
+        { id: 'cyber', label: 'CYBERPUNK MONOSPACE', cls: 'pc-font-cyber' },
+        { id: 'stencil', label: 'HEAVY ARCADE STENCIL', cls: 'pc-font-stencil' },
+        { id: 'script', label: 'SLEEK NEON SCRIPT', cls: 'pc-font-script' }
+    ];
+    const BANNER_FRAMES = [
+        { id: 'carbon', label: 'CLEAN CARBON FIBER', cls: 'pc-frame-carbon' },
+        { id: 'neon', label: 'NEON WIREFRAME', cls: 'pc-frame-neon' },
+        { id: 'spiked', label: 'SPIKED CYBER PLATES', cls: 'pc-frame-spiked' },
+        { id: 'gold', label: 'ANIMATED GOLD LEAF', cls: 'pc-frame-gold' }
+    ];
+    function nameFontCls(id) { const f = NAME_FONTS.find(x => x.id === id); return f ? f.cls : NAME_FONTS[0].cls; }
+    function bannerFrameCls(id) { const f = BANNER_FRAMES.find(x => x.id === id); return f ? f.cls : BANNER_FRAMES[0].cls; }
+
+    // ================================================================
+    // PLAYER PROFILE CARD - pulls together the LEVEL ROAD badge, the
+    // RANKED crest, equipped cosmetics, and up to 3 achievement medals
+    // into one shareable-looking header. Opened from the account dropdown
+    // (see accountBadgeProfileCard) or straight from the Customization
+    // Locker's own preview.
+    // ================================================================
+    function openProfileCardModal() {
+        closeAccountBadgeMenu();
+        if (!currentUser) { openWelcomeModal(); return; }
+        renderProfileCard();
+        document.getElementById('profile-card-modal').style.display = 'flex';
+    }
+    function closeProfileCardModal() {
+        document.getElementById('profile-card-modal').style.display = 'none';
+    }
+    function renderProfileCard() {
+        const name = getPlayerName() || 'Trainer';
+        const letterEl = document.getElementById('pc-avatar-letter');
+        if (letterEl) letterEl.innerText = (name.trim().charAt(0) || 'T').toUpperCase();
+        const nameEl = document.getElementById('pc-name');
+        if (nameEl) {
+            nameEl.innerText = name;
+            NAME_FONTS.forEach(f => nameEl.classList.remove(f.cls));
+            nameEl.classList.add(nameFontCls(playerCustomization.nameFont));
+        }
+        const banner = document.getElementById('pc-banner');
+        if (banner) {
+            BANNER_FRAMES.forEach(f => banner.classList.remove(f.cls));
+            banner.classList.add(bannerFrameCls(playerCustomization.bannerFrame));
+            for (let i = 0; i < RANK_TIERS.length; i++) banner.classList.remove('pc-rankbg-' + i);
+            const rankIdx = rankTierIndexFor(playerRankRating, isPlayerTop10);
+            banner.classList.add('pc-rankbg-' + rankIdx);
+        }
+        const levelBadgeEl = document.getElementById('pc-level-badge');
+        if (levelBadgeEl) {
+            const tierIdx = profileCardBadgeTierIdx();
+            const sampleLevel = LEVEL_TIERS[tierIdx].min;
+            levelBadgeEl.innerHTML = `<div class="prog-node-shape-wrap" style="width:100%;height:100%;margin:0;">` +
+                `<div class="prog-node-shape">${levelTierShapeSvg(progression.level, { color: LEVEL_TIERS[tierIdx].color })}</div>` +
+                `<div class="prog-node-num">${progression.level}</div></div>`;
+        }
+        const rankCrestEl = document.getElementById('pc-rank-crest');
+        if (rankCrestEl) {
+            const rankIdx = rankTierIndexFor(playerRankRating, isPlayerTop10);
+            rankCrestEl.innerHTML = rankCrestSvg(rankIdx);
+        }
+        const medalsEl = document.getElementById('pc-medals');
+        if (medalsEl) {
+            const unlocked = unlockedAchievements();
+            const slots = [0, 1, 2].map(i => {
+                const id = playerCustomization.medals[i];
+                const ach = id ? achievementById(id) : null;
+                const isUnlocked = ach && unlocked.indexOf(ach) !== -1;
+                if (ach && isUnlocked) {
+                    return `<div class="pc-medal-slot pc-medal-filled" title="${escapeHtml(ach.name)} - ${escapeHtml(ach.desc)}"><span class="pc-medal-icon">${ach.icon}</span><span class="pc-medal-name">${escapeHtml(ach.name)}</span></div>`;
+                }
+                return `<div class="pc-medal-slot pc-medal-empty">EMPTY SLOT</div>`;
+            });
+            medalsEl.innerHTML = slots.join('');
+        }
+    }
+
+    // ================================================================
+    // CUSTOMIZATION LOCKER - 4 categories (Badge Slot / Name Font / Banner
+    // Frame / Showcase Medals), each a simple grid of selectable option
+    // cards. Every selection saves immediately (see pickBadgeTier/
+    // pickNameFont/pickBannerFrame/toggleMedal) and re-renders the live
+    // Profile Card preview sitting above the tabs, rather than needing a
+    // separate CONFIRM step.
+    // ================================================================
+    let customizationActiveTab = 'badge';
+    function openCustomizationModal() {
+        closeAccountBadgeMenu();
+        if (!currentUser) { openWelcomeModal(); return; }
+        renderProfileCard();
+        switchCustomizationTab(customizationActiveTab);
+        document.getElementById('customization-modal').style.display = 'flex';
+    }
+    function closeCustomizationModal() {
+        document.getElementById('customization-modal').style.display = 'none';
+    }
+    function switchCustomizationTab(tab) {
+        customizationActiveTab = tab;
+        document.querySelectorAll('.cust-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+        if (tab === 'badge') renderCustBadgeGrid();
+        else if (tab === 'font') renderCustFontGrid();
+        else if (tab === 'frame') renderCustFrameGrid();
+        else if (tab === 'medals') renderCustMedalsGrid();
+    }
+    function renderCustBadgeGrid() {
+        const grid = document.getElementById('cust-grid');
+        if (!grid) return;
+        const reached = levelTierIndexFor(progression.level);
+        const current = profileCardBadgeTierIdx();
+        let html = '<p class="cust-grid-hint">Feature any shape tier you\'ve already reached (LEVEL ROAD, up to your current level).</p><div class="cust-option-row">';
+        for (let i = 0; i <= reached; i++) {
+            const tier = LEVEL_TIERS[i];
+            html += `<button type="button" class="cust-option${i === current ? ' active' : ''}" onclick="pickBadgeTier(${i})">` +
+                `<div class="prog-node-shape-wrap" style="width:48px;height:48px;margin:0 auto 6px;"><div class="prog-node-shape">${levelTierShapeSvg(tier.min)}</div></div>` +
+                `<span>${escapeHtml(tier.name)}</span></button>`;
+        }
+        html += '</div>';
+        grid.innerHTML = html;
+    }
+    function pickBadgeTier(idx) {
+        playerCustomization.badgeTierIdx = idx;
+        saveCustomization();
+        renderProfileCard();
+        renderCustBadgeGrid();
+    }
+    function renderCustFontGrid() {
+        const grid = document.getElementById('cust-grid');
+        if (!grid) return;
+        let html = '<div class="cust-option-row">';
+        NAME_FONTS.forEach(f => {
+            html += `<button type="button" class="cust-option${playerCustomization.nameFont === f.id ? ' active' : ''}" onclick="pickNameFont('${f.id}')">` +
+                `<span class="${f.cls}" style="font-size:16px;">Aa</span><span>${escapeHtml(f.label)}</span></button>`;
+        });
+        html += '</div>';
+        grid.innerHTML = html;
+    }
+    function pickNameFont(id) {
+        playerCustomization.nameFont = id;
+        saveCustomization();
+        renderProfileCard();
+        renderCustFontGrid();
+    }
+    function renderCustFrameGrid() {
+        const grid = document.getElementById('cust-grid');
+        if (!grid) return;
+        let html = '<div class="cust-option-row">';
+        BANNER_FRAMES.forEach(f => {
+            html += `<button type="button" class="cust-option${playerCustomization.bannerFrame === f.id ? ' active' : ''}" onclick="pickBannerFrame('${f.id}')">` +
+                `<div class="cust-frame-swatch ${f.cls}"></div><span>${escapeHtml(f.label)}</span></button>`;
+        });
+        html += '</div>';
+        grid.innerHTML = html;
+    }
+    function pickBannerFrame(id) {
+        playerCustomization.bannerFrame = id;
+        saveCustomization();
+        renderProfileCard();
+        renderCustFrameGrid();
+    }
+    function renderCustMedalsGrid() {
+        const grid = document.getElementById('cust-grid');
+        if (!grid) return;
+        const unlocked = unlockedAchievements();
+        const equipped = playerCustomization.medals;
+        let html = `<p class="cust-grid-hint">Pick up to 3 to showcase on your Profile Card (${equipped.length}/3 equipped).</p><div class="cust-option-row">`;
+        ACHIEVEMENTS.forEach(a => {
+            const isUnlocked = unlocked.indexOf(a) !== -1;
+            const isEquipped = equipped.indexOf(a.id) !== -1;
+            html += `<button type="button" class="cust-option${isEquipped ? ' active' : ''}${isUnlocked ? '' : ' cust-option-locked'}" ` +
+                `onclick="toggleMedal('${a.id}')" title="${escapeHtml(a.desc)}">` +
+                `<span class="cust-medal-icon">${isUnlocked ? a.icon : '&#128274;'}</span><span>${escapeHtml(a.name)}</span></button>`;
+        });
+        html += '</div>';
+        grid.innerHTML = html;
+    }
+    function toggleMedal(id) {
+        const ach = achievementById(id);
+        if (!ach || unlockedAchievements().indexOf(ach) === -1) return; // locked - not selectable yet
+        const medals = playerCustomization.medals;
+        const i = medals.indexOf(id);
+        if (i !== -1) medals.splice(i, 1);
+        else if (medals.length < 3) medals.push(id);
+        saveCustomization();
+        renderProfileCard();
+        renderCustMedalsGrid();
     }
 
     const PROGRESSION_TITLES = ['ROOKIE', 'GRINDER', 'SHARP', 'FOCUSED', 'RELENTLESS', 'SEASONED', 'TACTICIAN', 'VETERAN', 'RUTHLESS', 'UNSTOPPABLE'];
@@ -13791,6 +14471,7 @@
     let vsoRole = null;        // 'host' | 'guest'
     let vsoRoomCode = null;
     let vsoOpponentName = null;
+    let vsoOpponentRP = null; // RANKED only - see the presence track()/sync and vsOnlineShowFinishScreen
     let vsoMatchStarted = false;
     let vsoMyPresenceKey = null;
     let vsoBroadcastTick = 0;
@@ -14139,35 +14820,108 @@
             vsoFadeIn(coopEl);
             return;
         }
+        if (category === 'ranked') { vsOnlineOpenPlayPanel('ranked', 'quick'); return; }
+        if (category === 'rooms') { vsOnlineOpenPlayPanel('versus', 'rooms'); return; }
         if (category !== 'versus') return;
-        vsOnlineOpenPlayPanel('versus');
+        vsOnlineOpenPlayPanel('versus', 'quick');
     }
 
-    // Shared by the VERSUS card and the SURVIVAL CO-OP card - both land on
-    // the exact same Quick Match/Rooms panel, just tagged with a different
-    // vsoQueueMode (see vsOnlineTryClaimWaitingOpponent/vsOnlinePostToQueue/
-    // the match_start payload). CO-OP has no FT1/3/5 series - it's one
+    // Shared by the RANKED/QUICK MATCH/CUSTOM ROOMS cards and the SURVIVAL
+    // CO-OP card - all land on the exact same Quick Match/Rooms panel, just
+    // tagged with a different vsoQueueMode (see
+    // vsOnlineTryClaimWaitingOpponent/vsOnlinePostToQueue/the match_start
+    // payload) and, for RANKED, a different look (see
+    // vsOnlineRefreshRankedUI). CO-OP has no FT1/3/5 series - it's one
     // continuous run until both players are out - so the format row hides
-    // for it instead of showing a selector that wouldn't do anything.
-    function vsOnlineOpenPlayPanel(mode) {
+    // for it instead of showing a selector that wouldn't do anything; RANKED
+    // hides that same row too, but for the opposite reason - its format is
+    // picked FOR you by your rank tier (see vsOnlineRefreshRankedUI), not
+    // left to a manual FT1/3/5 choice.
+    function vsOnlineOpenPlayPanel(mode, startTab) {
         vsoQueueMode = mode;
         document.getElementById('vso-online-categories').style.display = 'none';
         document.getElementById('vso-online-coop').style.display = 'none';
         document.getElementById('vso-online-versus').style.display = 'flex';
-        document.getElementById('vso-format-section').style.display = mode === 'coop' ? 'none' : 'flex';
-        vsOnlineSwitchTab('quick');
+        document.getElementById('vso-format-section').style.display = (mode === 'coop' || mode === 'ranked') ? 'none' : 'flex';
+        // CUSTOM ROOMS still uses the 'versus' queue namespace underneath
+        // (it always has, as the ROOMS tab) - only RANKED hides the tab
+        // switcher itself, since it has no room-code option at all.
+        const tabsEl = document.getElementById('vso-menu-tabs');
+        if (tabsEl) tabsEl.style.display = mode === 'ranked' ? 'none' : 'flex';
+        vsOnlineSwitchTab(startTab === 'rooms' ? 'rooms' : 'quick');
         document.getElementById('vso-quick-idle').style.display = 'flex';
         document.getElementById('vso-quick-searching').style.display = 'none';
         document.getElementById('vso-choice').style.display = 'flex';
         document.getElementById('vso-join').style.display = 'none';
         document.getElementById('vso-menu-body').style.display = 'flex';
         document.getElementById('vso-waiting').style.display = 'none';
+        const rankedCard = document.getElementById('vso-ranked-card');
+        const findBtn = document.getElementById('vso-find-match-btn');
+        if (mode === 'ranked') {
+            if (rankedCard) rankedCard.style.display = 'flex';
+            if (findBtn) findBtn.innerText = 'FIND RANKED MATCH';
+            document.getElementById('vso-stats-row-casual').style.display = 'none';
+            vsOnlineRefreshRankedUI();
+        } else {
+            if (rankedCard) rankedCard.style.display = 'none';
+            if (findBtn) findBtn.innerText = 'FIND MATCH';
+            document.getElementById('vso-stats-row-casual').style.display = 'flex';
+        }
         // "Pop up yet another screen" - replay the pop-in animation every
         // time this opens, not just the first time (removing then re-adding
         // forces the browser to restart it instead of a no-op re-add).
         const box = document.querySelector('#vso-online-versus .vso-glass-box');
         if (box) { box.classList.remove('pop-in'); void box.offsetWidth; box.classList.add('pop-in'); }
         vsoFadeIn(document.getElementById('vso-online-versus'));
+    }
+
+    // Pins vsoSeriesFormat to whatever this player's CURRENT tier requires
+    // and renders the tier card immediately from cached data, then kicks
+    // off ONE leaderboard refresh in the background for the top-10/
+    // GRANDMASTER check and re-renders (render only - never re-fetches)
+    // once that resolves, rather than blocking the panel open on a network
+    // call. Safe to call every time the RANKED panel opens.
+    function vsOnlineRefreshRankedUI() {
+        vsOnlineRenderRankedUI();
+        refreshRankLeaderboard().then(() => {
+            // Only re-render if still actually looking at the RANKED panel -
+            // the player may have backed out before this resolved.
+            if (vsoQueueMode === 'ranked' && document.getElementById('vso-online-versus').style.display !== 'none') {
+                vsOnlineRenderRankedUI();
+            }
+        });
+    }
+    function vsOnlineRenderRankedUI() {
+        const idx = rankTierIndexFor(playerRankRating, isPlayerTop10);
+        const tier = RANK_TIERS[idx];
+        vsoSeriesFormat = tier.format;
+
+        const crestEl = document.getElementById('rk-tier-crest');
+        if (crestEl) crestEl.innerHTML = rankCrestSvg(idx);
+        const nameEl = document.getElementById('rk-tier-name');
+        if (nameEl) { nameEl.innerText = tier.name; nameEl.style.color = tier.color; }
+        const rpEl = document.getElementById('rk-tier-rp');
+        if (rpEl) rpEl.innerText = playerRankRating.toLocaleString() + ' RP';
+        const progress = rankProgressInfo(playerRankRating);
+        const fillEl = document.getElementById('rk-tier-progress-fill');
+        const progressTextEl = document.getElementById('rk-tier-progress-text');
+        const progressWrap = document.getElementById('rk-tier-progress-wrap');
+        if (progress) {
+            if (progressWrap) progressWrap.style.display = 'block';
+            if (fillEl) { fillEl.style.width = Math.min(100, (progress.into / progress.span) * 100) + '%'; fillEl.style.background = tier.color; }
+            if (progressTextEl) progressTextEl.innerText = `${progress.into.toLocaleString()} / ${progress.span.toLocaleString()} RP to ${progress.nextName}`;
+        } else if (progressWrap) {
+            progressWrap.style.display = 'none';
+        }
+        const globalEl = document.getElementById('rk-tier-global');
+        if (globalEl) {
+            const myName = getPlayerName();
+            const placing = rankTop10Cache.findIndex(r => r.player_name === myName);
+            if (placing !== -1) { globalEl.style.display = 'inline-block'; globalEl.innerText = '#' + (placing + 1) + ' GLOBAL'; }
+            else globalEl.style.display = 'none';
+        }
+        const formatEl = document.getElementById('rk-auto-format');
+        if (formatEl) formatEl.innerText = `Auto Format: FT${tier.format} (Enforced by Tier)`;
     }
 
     // BACK from the play panel returns to wherever it was actually opened
@@ -14191,14 +14945,12 @@
     }
 
     // Shows how many people are actually waiting right now - a small
-    // sentence-style badge on the VERSUS category card, and a much bigger
+    // sentence-style badge on each category card, and a much bigger
     // standalone number inside the Quick Match tab itself (see
-    // .vso-stat-value), next to a RANK slot. There's no actual ranking
-    // system yet - RANK is a reserved, honestly-labelled "UNRANKED"
-    // placeholder for now, not a fabricated number. Polled on an interval
-    // (see openVsOnlineLobby/vsOnlineCancel) rather than a dedicated
-    // realtime subscription - a count this casual doesn't need to be
-    // frame-perfect, just roughly current.
+    // .vso-stat-value). Polled on an interval (see openVsOnlineLobby/
+    // vsOnlineCancel) rather than a dedicated realtime subscription - a
+    // count this casual doesn't need to be frame-perfect, just roughly
+    // current.
     let vsoQueueCountPollTimer = null;
     async function vsOnlineRefreshQueueCount() {
         if (!sbClient) return;
@@ -14214,10 +14966,16 @@
             const coopN = coopCount || 0;
             const coopCardEl = document.getElementById('vso-queue-count-coop');
             if (coopCardEl) coopCardEl.innerText = coopN === 1 ? '1 player in queue' : `${coopN} players in queue`;
+            // RANKED gets its own queue_type too (see vsoQueueMode), same
+            // treatment as VERSUS/CO-OP above.
+            const { count: rankedCount } = await sbClient.from('matchmaking_queue').select('id', { count: 'exact', head: true }).eq('status', 'waiting').eq('queue_type', 'ranked');
+            const rankedN = rankedCount || 0;
+            const rankedCardEl = document.getElementById('vso-queue-count-ranked');
+            if (rankedCardEl) rankedCardEl.innerText = rankedN === 1 ? '1 player in queue' : `${rankedN} players in queue`;
             // The in-panel big number reflects whichever queue is actually
-            // open right now (VERSUS or CO-OP), not always the VERSUS count.
+            // open right now, not always the VERSUS count.
             const bigEl = document.getElementById('vso-queue-count-quick');
-            if (bigEl) bigEl.innerText = vsoQueueMode === 'versus' ? n : coopN;
+            if (bigEl) bigEl.innerText = vsoQueueMode === 'versus' ? n : (vsoQueueMode === 'ranked' ? rankedN : coopN);
         } catch (e) { /* best-effort */ }
     }
 
@@ -14424,6 +15182,7 @@
         vsoRole = role;
         vsoRoomCode = code;
         vsoOpponentName = null;
+        vsoOpponentRP = null;
         vsoMatchStarted = false;
         vsoMatchFrozen = false;
         vsoSeriesWins = { me: 0, opponent: 0 };
@@ -14457,7 +15216,7 @@
 
         vsoChannel.subscribe((status, err) => {
             if (status === 'SUBSCRIBED') {
-                vsoChannel.track({ name: getPlayerName() });
+                vsoChannel.track({ name: getPlayerName(), rp: playerRankRating });
                 const statusEl = document.getElementById('vso-status');
                 if (statusEl) statusEl.innerText = 'Waiting for opponent...';
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -14489,6 +15248,13 @@
 
         const opponentEntry = state[otherKeys[0]] && state[otherKeys[0]][0];
         vsoOpponentName = opponentEntry ? opponentEntry.name : 'Opponent';
+        // Only meaningful for a RANKED match (see vsOnlineShowFinishScreen's
+        // RP adjustment) - casual VERSUS/CO-OP just ignore it. Tracked over
+        // presence rather than read from Supabase directly because
+        // player_data is RLS-locked to its own owner - a client can't look
+        // up a stranger's rating, but it CAN see whatever that stranger's
+        // own client already broadcasts about itself.
+        if (opponentEntry && typeof opponentEntry.rp === 'number') vsoOpponentRP = opponentEntry.rp;
 
         const statusEl = document.getElementById('vso-status');
         if (statusEl) statusEl.innerText = vsoQueueMode === 'coop' ? `Partner found - ${vsoOpponentName}! Starting...` : `Found ${vsoOpponentName}! Starting...`;
@@ -15451,6 +16217,20 @@
         // which never reaches this function at all).
         recordMatchResult(iWon);
 
+        // RANKED-only: adjust RP using whatever the opponent's own client
+        // broadcast about itself (see vsOnlinePresenceSync/vsoOpponentRP) -
+        // falls back to treating it as an even match if that never arrived
+        // for some reason, rather than skipping the update entirely.
+        let rpDelta = null;
+        if (vsoQueueMode === 'ranked' && currentUser) {
+            const oppRP = typeof vsoOpponentRP === 'number' ? vsoOpponentRP : playerRankRating;
+            rpDelta = computeRatingChange(playerRankRating, oppRP, iWon);
+            playerRankRating = Math.max(0, playerRankRating + rpDelta);
+            saveRankRating();
+            submitRankRating();
+            refreshRankLeaderboard();
+        }
+
         // VS Online never routes through triggerGameOver (its own finish
         // screen here replaces that entirely - see the comment at the
         // 'vs' branch in triggerKO), so it needs its own XP award using the
@@ -15488,6 +16268,16 @@
             subEl.innerText = iWon
                 ? `You won the match against ${vsoOpponentName}!`
                 : `${vsoOpponentName} won the match.`;
+        }
+        const rpEl = document.getElementById('vso-finish-rp');
+        if (rpEl) {
+            if (rpDelta !== null) {
+                rpEl.style.display = 'block';
+                rpEl.style.color = rpDelta >= 0 ? '#35e08a' : '#ff6b8a';
+                rpEl.innerText = (rpDelta >= 0 ? '+' : '') + rpDelta + ' RP  (' + playerRankRating + ' RP total)';
+            } else {
+                rpEl.style.display = 'none';
+            }
         }
         if (btn) { btn.disabled = false; btn.innerText = 'REMATCH?'; btn.style.textDecoration = ''; btn.style.opacity = ''; }
         const timerEl = document.getElementById('vso-finish-timer');
@@ -17927,6 +18717,8 @@
         loadBests();
         loadLifetimeStats();
         loadProgression();
+        loadRankRating();
+        loadCustomization();
         updateProgressionWidget();
         loadPuzzleProgress();
         updateVolumeUI();
