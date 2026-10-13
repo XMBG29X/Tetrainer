@@ -6617,12 +6617,17 @@
     }
     #level-widget:hover { border-color: rgba(255,51,153,0.75); box-shadow: 0 0 14px rgba(255,51,153,0.35); }
     body.in-game #level-widget { display: none; }
+    /* Shows the player's current LEVEL ROAD tier shape (see
+       levelTierShapeSvg/updateProgressionWidget) instead of a plain number
+       circle - the same shape/sub-level upgrade shown on the road itself,
+       right next to the level number everywhere else in the UI. */
     .level-widget-badge {
-      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      width: 26px; height: 26px; flex-shrink: 0; position: relative;
+    }
+    .level-widget-badge .prog-node-num { font-size: 11px; }
+    #level-widget.level-widget-locked .level-widget-badge {
       display: flex; align-items: center; justify-content: center;
-      background: radial-gradient(circle at 35% 30%, #ff6fc2, #ff3399 70%);
-      color: #1a0411; font-size: 12px; font-weight: 900;
-      box-shadow: 0 0 10px rgba(255,51,153,0.6);
+      border-radius: 50%; background: rgba(255,255,255,0.08); font-size: 13px;
     }
     .level-widget-xpwrap { display: flex; flex-direction: column; gap: 3px; width: 108px; }
     .level-widget-xpbar { width: 100%; height: 5px; border-radius: 999px; background: #333344; overflow: hidden; }
@@ -6639,7 +6644,6 @@
        and relabeled instead of hidden entirely, so there's still an obvious
        "here's what you're missing, go sign in" prompt in the top bar. */
     #level-widget.level-widget-locked { border-color: rgba(255,255,255,0.15); opacity: 0.75; }
-    #level-widget.level-widget-locked .level-widget-badge { background: rgba(255,255,255,0.08); box-shadow: none; color: #7c8496; font-size: 13px; }
     #level-widget.level-widget-locked .level-widget-xptext { color: #7c8496; }
     @media (max-width: 640px) {
       #level-widget { padding: 5px 10px 5px 5px; gap: 6px; }
@@ -6748,6 +6752,18 @@
     .level-tier-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 4px currentColor); }
     .level-tier-spin { transform-origin: 50px 50px; animation: levelTierSpin 6s linear infinite; }
     @keyframes levelTierSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    /* ZENITH's 4 orbiting dots spin the opposite way from its own star
+       outline, so the apex tier reads as two independent moving layers
+       instead of one shape rigidly spinning as a single unit. */
+    .level-tier-spin-rev { animation-direction: reverse; animation-duration: 4s; }
+    /* Soft glow pulse for the upper-mid tiers (PHALANX/NEXUS/SINGULARITY/
+       ASCENDANT) - ZENITH gets the full spin treatment above instead of
+       this, everything below tier 7 stays a static glow. */
+    .level-tier-pulse { animation: levelTierPulse 2.4s ease-in-out infinite; }
+    @keyframes levelTierPulse {
+      0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
+      50%      { filter: drop-shadow(0 0 9px currentColor); }
+    }
     .prog-node-num {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       font-size: 15px; font-weight: 900; color: #fff; text-shadow: 0 0 6px rgba(0,0,0,0.6);
@@ -6866,15 +6882,16 @@
       align-items: center; justify-content: center;
     }
     .badge-legend-box {
-      width: 760px; max-width: 94vw; max-height: 86vh; overflow-y: auto;
+      width: 860px; max-width: 94vw; max-height: 86vh; overflow-y: auto;
       background: #1b1b28; border: 2px solid #5be8ff; border-radius: 14px;
       box-shadow: 0 0 40px rgba(91,232,255,0.25);
     }
     .badge-legend-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
       padding: 18px 20px 22px;
     }
     @media (max-width: 640px) { .badge-legend-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 641px) and (max-width: 860px) { .badge-legend-grid { grid-template-columns: repeat(3, 1fr); } }
     .badge-legend-tile {
       display: flex; flex-direction: column; align-items: center; gap: 8px;
       background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
@@ -6882,7 +6899,6 @@
     }
     .badge-legend-tile .level-tier-svg { width: 64px; height: 64px; overflow: visible; filter: drop-shadow(0 0 6px currentColor); }
     .badge-legend-tile-range { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; color: #fff; }
-    .badge-legend-tile-name { font-size: 9.5px; letter-spacing: 0.5px; color: #7c8496; }
 
     /* ---------------- LEVEL ROAD, embedded inside ACCOUNT ---------------- */
     /* Same track/node styling as the popup modal (shared .prog-* classes),
@@ -9125,9 +9141,31 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.190';
+    const GAME_VERSION = '1.192';
 
     const PATCH_NOTES = [
+      {
+        version: '1.192',
+        date: '13 Oct 2026',
+        title: 'Badge shapes centred, a mid-tier upgrade every 5 levels, extended to 150',
+        changes: [
+          { tag: 'fix', text: '<b>Every badge shape is properly centred now.</b> A regular shape with an odd number of sides (pentagon, heptagon, nonagon...) generated the usual way actually sits slightly off-centre inside a square frame - noticeable once you saw a few in a row. All shapes are now built and re-centred on their own bounding box, not just their mathematical centre, so every one lands dead centre in its badge frame.' },
+          { tag: 'new', text: '<b>A sub-level upgrade now happens every 5 levels, not just every 10.</b> Halfway through each tier the SAME shape gains a thin dashed ring and a brighter glow - a visible "it\'s getting cooler" step between the bigger shape-shifts, not just at the start of each new decade.' },
+          { tag: 'new', text: '<b>Your level badge next to your player level (top-right widget) now shows this same shape</b> - tier and sub-level upgrade included - instead of a plain pink circle with a number in it.' },
+          { tag: 'new', text: '<b>5 more tiers added, extending the shape progression from 100 to 150:</b> cross (100-109), 8-point star (110-119), ring (120-129), 12-point burst (130-139), a second 8-point star variant (140-149) - ZENITH\'s animated star is now the 150+ apex.' },
+          { tag: 'change', text: 'The BADGE UPGRADES legend now always shows each tier\'s own starting level (1, 10, 20, 30... up to 150) instead of a mid-tier sample number, matching the order levels actually unlock them in.' }
+        ]
+      },
+      {
+        version: '1.191',
+        date: '13 Oct 2026',
+        title: 'BADGE UPGRADES extended to level 100, more detailed shapes',
+        changes: [
+          { tag: 'new', text: '<b>5 new shape tiers added to the LEVEL ROAD</b>, extending the shape-shift progression from capping out at level 50 to running all the way to level 100: pentagon (50-59), heptagon (60-69), nonagon (70-79), and two hexagram ("Star of David" outline) tiers at 80-89 and 90-99 - ZENITH\'s animated star is now the level 100+ apex instead of 50+.' },
+          { tag: 'change', text: 'Every shape tier is now a bit more ornate than the last instead of just swapping outlines - starting a couple tiers in, each shape gets a smaller nested echo of itself inside, then small accent dots at three points around the frame a few tiers after that, then a soft glow pulse heading into the home stretch toward ZENITH.' },
+          { tag: 'change', text: 'The BADGE UPGRADES legend popup now shows just the shapes and the level range each one covers - dropped the tier name text underneath (CADET/WIRED/etc.) so it reads as a quick symbol reference instead of a list of names to memorize.' }
+        ]
+      },
       {
         version: '1.190',
         date: '12 Oct 2026',
@@ -12042,12 +12080,12 @@
     // everywhere else in this file.
     // --- LEVEL ROAD TIER SHAPES ---
     // Every node on the LEVEL ROAD (not just the every-10th-level badge
-    // reward slot below) is framed in one of these 6 shapes, picked by
-    // which decade the node's level falls in - the shape itself is the
-    // "shape upgrades every 10 levels" visual the track is built around.
-    // 50+ has no further shift (ZENITH is the apex/forever tier), unlike
-    // the separate BADGE_RANKS system below which keeps adding detail
-    // every 4 tiers all the way to 200 - these are deliberately two
+    // reward slot below) is framed in one of these shapes, picked by which
+    // decade the node's level falls in - the shape itself is the "shape
+    // upgrades every 10 levels" visual the track is built around. Runs all
+    // the way to level 100, where ZENITH becomes the apex/forever tier -
+    // unlike the separate BADGE_RANKS system below (which keeps adding
+    // detail every 4 tiers all the way to 200), these are deliberately two
     // different things: LEVEL_TIERS is what every node on the road looks
     // like, BADGE_RANKS is the specific profile-picture decoration some
     // nodes additionally unlock as their reward.
@@ -12057,45 +12095,161 @@
         { name: 'OVERCLOCKED', min: 20, max: 29, shape: 'diamond', color: '#35e0a8' },
         { name: 'QUANTUM', min: 30, max: 39, shape: 'hexagon', color: '#b06bff' },
         { name: 'HYPERDRIVE', min: 40, max: 49, shape: 'triangle', color: '#ff8a3d' },
-        { name: 'ZENITH', min: 50, max: Infinity, shape: 'star', color: '#6fa3ff' }
+        { name: 'VANGUARD', min: 50, max: 59, shape: 'pentagon', color: '#ff4d6d' },
+        { name: 'PHALANX', min: 60, max: 69, shape: 'heptagon', color: '#ffc43d' },
+        { name: 'NEXUS', min: 70, max: 79, shape: 'nonagon', color: '#ff5dcb' },
+        { name: 'SINGULARITY', min: 80, max: 89, shape: 'hexagram', color: '#4d7bff' },
+        { name: 'ASCENDANT', min: 90, max: 99, shape: 'decagon', color: '#e8e8f4' },
+        { name: 'PARADOX', min: 100, max: 109, shape: 'cross', color: '#ff3366' },
+        { name: 'INFINITY', min: 110, max: 119, shape: 'star8', color: '#35e0a8' },
+        { name: 'ECLIPSE', min: 120, max: 129, shape: 'ring', color: '#aa55ff' },
+        { name: 'SUPERNOVA', min: 130, max: 139, shape: 'burst12', color: '#ffd84d' },
+        { name: 'ORACLE', min: 140, max: 149, shape: 'star8', color: '#5be8ff' },
+        { name: 'ZENITH', min: 150, max: Infinity, shape: 'star', color: '#6fa3ff' }
     ];
     function levelTierIndexFor(level) {
         for (let i = 0; i < LEVEL_TIERS.length; i++) if (level >= LEVEL_TIERS[i].min && level <= LEVEL_TIERS[i].max) return i;
         return LEVEL_TIERS.length - 1;
     }
     function levelTierFor(level) { return LEVEL_TIERS[levelTierIndexFor(level)]; }
+    // Every 5 levels inside a tier (not just every 10 at a tier change) the
+    // badge gets a visibly "cooler" bump - same shape, extra flourish - so
+    // there's always something to look forward to, not just once a decade.
+    // The apex tier (max === Infinity) has nothing further to climb toward,
+    // so it always shows the upgraded look.
+    function levelSubStepFor(level) {
+        const tier = levelTierFor(level);
+        if (tier.max === Infinity) return 1;
+        return (level - tier.min) >= 5 ? 1 : 0;
+    }
 
+    // ---- shape point generation, all centred on (50,50) by construction ----
+    // A regular N-gon generated by walking equal angle steps around a centre
+    // is only bbox-centred when N is even (odd counts like a 5/7/9-gon put
+    // one flat edge opposite a single point, which visually sits the whole
+    // shape off-centre within a square frame) - centerPoints() below
+    // corrects for that by re-centring on the shape's own bounding box
+    // rather than its mathematical centre, so every shape in this file -
+    // even-sided or odd - lands dead centre in its node frame.
+    function regularPolygonPts(sides, R, startDeg) {
+        startDeg = startDeg === undefined ? -90 : startDeg;
+        const pts = [];
+        for (let i = 0; i < sides; i++) {
+            const a = (startDeg + i * 360 / sides) * Math.PI / 180;
+            pts.push([50 + R * Math.cos(a), 50 + R * Math.sin(a)]);
+        }
+        return pts;
+    }
+    // Alternating outer/inner radius ring - how every spiky star shape here
+    // is built. Always bbox-centred: rotating by half the point count is a
+    // clean 180deg turn that maps every vertex onto one of matching radius.
+    function starPts(points, outerR, innerR) {
+        const pts = [];
+        for (let i = 0; i < points * 2; i++) {
+            const a = (-90 + i * 180 / points) * Math.PI / 180;
+            const r = i % 2 === 0 ? outerR : innerR;
+            pts.push([50 + r * Math.cos(a), 50 + r * Math.sin(a)]);
+        }
+        return pts;
+    }
+    function centerPoints(pts) {
+        const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+        const dx = 50 - (Math.min(...xs) + Math.max(...xs)) / 2;
+        const dy = 50 - (Math.min(...ys) + Math.max(...ys)) / 2;
+        return pts.map(([x, y]) => [x + dx, y + dy]);
+    }
+    function ptsToStr(pts) { return pts.map(([x, y]) => x.toFixed(2) + ',' + y.toFixed(2)).join(' '); }
     // One shared outline path per shape, in a consistent 0-100 box so every
-    // tier drops into the same node frame unchanged. ZENITH's "star" is two
-    // overlapping squares (one rotated 45deg) rather than a drawn star -
-    // reads as the same "orbiting shapes" apex look as the reference art
-    // with one <polygon> reused twice instead of a 10-point star path.
+    // tier drops into the same node frame unchanged. Regular polygons are
+    // just a point list (reused below to also draw each one's own nested
+    // detail ring); shield/star/hexagram/ring are irregular or multi-part
+    // enough to get their own markup instead.
     const LEVEL_TIER_SHAPE_POINTS = {
-        octagon: '30,6 70,6 94,30 94,70 70,94 30,94 6,70 6,30',
-        hexagon: '50,4 93,27 93,73 50,96 7,73 7,27',
-        diamond: '50,4 96,50 50,96 4,50',
-        // Apex points down, matching HYPERDRIVE's reference art.
-        triangle: '6,16 94,16 50,92',
-        shield: null, // drawn as a <path>, see below
-        star: null    // drawn as two overlapping polygons, see below
+        octagon: ptsToStr(centerPoints(regularPolygonPts(8, 46, -90 + 22.5))),
+        hexagon: ptsToStr(centerPoints(regularPolygonPts(6, 46))),
+        diamond: ptsToStr(centerPoints(regularPolygonPts(4, 46))),
+        // Apex points down, matching HYPERDRIVE's reference art - generated
+        // point-up then flipped vertically (still bbox-centred either way).
+        triangle: ptsToStr(centerPoints(regularPolygonPts(3, 46)).map(([x, y]) => [x, 100 - y])),
+        pentagon: ptsToStr(centerPoints(regularPolygonPts(5, 46))),
+        heptagon: ptsToStr(centerPoints(regularPolygonPts(7, 46))),
+        nonagon: ptsToStr(centerPoints(regularPolygonPts(9, 46))),
+        decagon: ptsToStr(centerPoints(regularPolygonPts(10, 46))),
+        // A plain compass cross/plus - hand-written since it isn't a
+        // regular polygon, but symmetric around (50,50) by construction.
+        cross: '36,8 64,8 64,36 92,36 92,64 64,64 64,92 36,92 36,64 8,64 8,36 36,36',
+        star8: ptsToStr(starPts(8, 46, 20)),
+        burst12: ptsToStr(starPts(12, 46, 26))
     };
+    // Scales a "x,y x,y ..." point list toward the box centre - used to draw
+    // a smaller nested outline of the SAME shape inside itself as a tier's
+    // detail ring, instead of hand-drawing a second path per shape.
+    function scalePolygonPoints(points, scale, cx, cy) {
+        cx = cx || 50; cy = cy || 50;
+        return points.split(' ').map(pair => {
+            const [x, y] = pair.split(',').map(Number);
+            return (cx + (x - cx) * scale).toFixed(1) + ',' + (cy + (y - cy) * scale).toFixed(1);
+        }).join(' ');
+    }
+    // Small accent dots at 3 points around the frame - added from tier 4
+    // (QUANTUM) up as a cheap, shape-agnostic way to keep adding visible
+    // detail onto tiers whose outline itself doesn't get any more complex.
+    function levelTierAccentDots(color) {
+        return [[50, 8], [89, 73], [11, 73]].map(([x, y]) =>
+            `<circle cx="${x}" cy="${y}" r="3.4" fill="${color}"/>`
+        ).join('');
+    }
     function levelTierShapeSvg(level, opts) {
         opts = opts || {};
         const tier = levelTierFor(level);
+        const tierIdx = levelTierIndexFor(level);
+        const subStep = opts.subStep !== undefined ? opts.subStep : levelSubStepFor(level);
         const color = opts.color || tier.color;
-        const animated = tier.shape === 'star'; // "higher tiers animated" per the reference brief
-        let inner;
+        // Every tier is a LITTLE more ornate than the last, not just a
+        // different outline - a nested inner echo of the shape from tier 2
+        // on, corner accent dots from tier 4 on, a soft glow pulse from
+        // tier 7 on, building up to ZENITH's full spin + orbiting dots at
+        // the very top instead of all of that detail only ever existing on
+        // the one apex tier. On TOP of that, every 5 levels within a single
+        // tier (see levelSubStepFor) adds one more ring + a brighter glow,
+        // so there's a visible step up even between shape changes.
+        let inner = '';
         if (tier.shape === 'shield') {
             inner = `<path d="M50,5 L90,18 L90,52 C90,76 72,90 50,97 C28,90 10,76 10,52 L10,18 Z" fill="${color}22" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
+            if (tierIdx >= 1) inner += `<path d="M50,16 L78,26 L78,51 C78,68 65,78 50,83 C35,78 22,68 22,51 L22,26 Z" fill="none" stroke="${color}" stroke-width="2" opacity="0.8"/>`;
+        } else if (tier.shape === 'hexagram') {
+            // Two overlapping triangles (a "Star of David" outline), each
+            // generated+centred the same way as every other polygon here.
+            const up = ptsToStr(centerPoints(regularPolygonPts(3, 46)));
+            const down = ptsToStr(centerPoints(regularPolygonPts(3, 46)).map(([x, y]) => [x, 100 - y]));
+            inner = `<polygon points="${up}" fill="${color}22" stroke="${color}" stroke-width="4"/>` +
+                `<polygon points="${down}" fill="none" stroke="${color}" stroke-width="4"/>`;
+            if (tierIdx >= 1) inner += `<polygon points="${up}" fill="none" stroke="${color}" stroke-width="2" opacity="0.8" transform="scale(0.6) translate(33.3 33.3)"/>`;
+        } else if (tier.shape === 'ring') {
+            inner = `<circle cx="50" cy="50" r="46" fill="none" stroke="${color}" stroke-width="5"/>` +
+                `<circle cx="50" cy="50" r="46" fill="${color}11"/>` +
+                `<circle cx="50" cy="50" r="28" fill="none" stroke="${color}" stroke-width="3" opacity="0.85"/>`;
         } else if (tier.shape === 'star') {
-            inner = `<g class="${animated ? 'level-tier-spin' : ''}">` +
+            inner = `<g class="level-tier-spin">` +
                 `<polygon points="50,4 96,50 50,96 4,50" fill="${color}22" stroke="${color}" stroke-width="4"/>` +
                 `<polygon points="50,4 96,50 50,96 4,50" fill="none" stroke="${color}" stroke-width="4" transform="rotate(45 50 50)"/>` +
+                `</g>` +
+                `<g class="level-tier-spin level-tier-spin-rev">` +
+                [[50, 2], [98, 50], [50, 98], [2, 50]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3" fill="${color}"/>`).join('') +
                 `</g>`;
         } else {
-            inner = `<polygon points="${LEVEL_TIER_SHAPE_POINTS[tier.shape]}" fill="${color}22" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
+            const pts = LEVEL_TIER_SHAPE_POINTS[tier.shape];
+            inner = `<polygon points="${pts}" fill="${color}22" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
+            if (tierIdx >= 1) inner += `<polygon points="${scalePolygonPoints(pts, 0.6)}" fill="none" stroke="${color}" stroke-width="2" opacity="0.8"/>`;
         }
-        return `<svg class="level-tier-svg" viewBox="0 0 100 100" style="color:${color}" aria-hidden="true">${inner}</svg>`;
+        if (tierIdx >= 3 && tier.shape !== 'star') inner += levelTierAccentDots(color);
+        // The sub-level bump: a thin dashed ring riding just outside the
+        // shape once you're 5+ levels into the tier - cheap to add to any
+        // shape since it's drawn around the frame, not into the shape
+        // itself, and reads clearly as "upgraded" at a glance.
+        if (subStep >= 1 && tier.shape !== 'star') inner += `<circle cx="50" cy="50" r="48" fill="none" stroke="${color}" stroke-width="1.6" stroke-dasharray="4 3" opacity="0.75"/>`;
+        const pulse = (tierIdx >= 6 || subStep >= 1) && tier.shape !== 'star' ? ' level-tier-pulse' : '';
+        return `<svg class="level-tier-svg${pulse}" viewBox="0 0 100 100" style="color:${color}" aria-hidden="true">${inner}</svg>`;
     }
 
     const PROGRESSION_TITLES = ['ROOKIE', 'GRINDER', 'SHARP', 'FOCUSED', 'RELENTLESS', 'SEASONED', 'TACTICIAN', 'VETERAN', 'RUTHLESS', 'UNSTOPPABLE'];
@@ -12220,7 +12374,13 @@
         }
         widgetEl.classList.remove('level-widget-locked');
         const need = xpForLevel(progression.level);
-        badgeEl.innerText = progression.level;
+        // Same tier shape + sub-level bump shown on the LEVEL ROAD itself
+        // (see levelTierShapeSvg/levelSubStepFor) - the player's level
+        // badge everywhere in the UI stays one consistent symbol.
+        badgeEl.innerHTML = `<div class="prog-node-shape-wrap" style="width:100%;height:100%;margin:0;">` +
+            `<div class="prog-node-shape">${levelTierShapeSvg(progression.level)}</div>` +
+            `<div class="prog-node-num">${progression.level}</div>` +
+            `</div>`;
         fillEl.style.width = Math.min(100, (progression.xp / need) * 100) + '%';
         textEl.innerText = `${progression.xp} / ${need} XP`;
         pipEl.hidden = pendingRewardLevels().length === 0;
@@ -12249,15 +12409,20 @@
         const grid = document.querySelector('.badge-legend-grid');
         if (grid) {
             grid.innerHTML = LEVEL_TIERS.map(tier => {
-                const sampleLevel = tier.max === Infinity ? tier.min : Math.floor((tier.min + tier.max) / 2);
+                // The sample shown is always the tier's OWN start level
+                // (1, 10, 20, 30...) per the requested display order, not a
+                // midpoint - so the number inside each symbol matches the
+                // level that actually unlocks it.
+                const sampleLevel = tier.min;
                 const range = tier.max === Infinity ? `LEVEL ${tier.min}+` : `LEVEL ${tier.min}-${tier.max}`;
+                // Just the symbol and the level range it covers - no tier
+                // name text, per "it should just be symbols".
                 return `<div class="badge-legend-tile">
                     <div class="prog-node-shape-wrap" style="width:64px;height:64px;">
                         <div class="prog-node-shape">${levelTierShapeSvg(sampleLevel)}</div>
                         <div class="prog-node-num" style="font-size:20px;">${sampleLevel}</div>
                     </div>
                     <div class="badge-legend-tile-range">${range}</div>
-                    <div class="badge-legend-tile-name">${escapeHtml(tier.name)}</div>
                 </div>`;
             }).join('');
         }
@@ -12313,7 +12478,7 @@
             // A "shape shift" is the first level of a new tier (10, 20, 30...) -
             // the one node per decade that's worth calling out, vs. every
             // other node in that same decade just quietly sharing the shape.
-            const isShapeShift = l >= 10 && l % 10 === 0 && l <= 50;
+            const isShapeShift = l >= 10 && l % 10 === 0 && l <= 100;
             const shiftBanner = (isShapeShift && state === 'locked')
                 ? `<div class="prog-node-shift-banner">THE FIRST BIG SHAPE SHIFT!<span>Unlocks the ${escapeHtml(tier.name)} ${escapeHtml(tier.shape)}</span></div>`
                 : '';
