@@ -3347,33 +3347,66 @@
       max-width: 100%;
     }
     /* Its own full-width row under the two-column grid, instead of crammed
-       into a 220px cell with everything else. */
+       into a 220px cell with everything else - and its own distinct card
+       (padding/border/background) now too, instead of just a label sitting
+       directly on the settings panel's own background like every other
+       plain toggle around it. */
     .theme-preview-group {
       grid-column: 1 / -1;
+      padding: 16px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
     }
+    /* GAMEPLAY tab's DAS/ARR/SDF/DCD block (see the handling-subsection
+       markup) - spans both grid columns, then lays its own 5 rows out in a
+       single centred column, same reasoning .handling-grid always used:
+       a slider with a full description line under it doesn't fit two to a
+       row. */
+    .handling-subsection {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      max-width: 420px;
+      margin: 6px auto 0;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    /* AUDIO tab has just the one MUSIC/SFX pair - centred in the available
+       width instead of sitting in the grid's left column with an empty
+       cell beside it. */
+    .audio-grid { grid-template-columns: 1fr; justify-items: center; }
     /* The promoted ACCOUNT & STATS entry point - full-width like the theme
        preview above it, but an actual button (not a label+control pair like
        the rest of this grid), since the whole row is clickable rather than
        hosting a separate control. */
-    .account-stats-btn {
+    /* .control-group.XXX (not just .XXX) beats the shared .control-group
+       base's own flex-direction:column on specificity, regardless of
+       source order - a plain single-class override here was silently
+       losing to it since .control-group is defined later in the file. */
+    .control-group.account-stats-btn {
       grid-column: 1 / -1;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
-      gap: 4px;
-      padding: 14px 16px;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
       margin-top: 4px;
       border-radius: 8px;
       border: 2px solid #5be8ff;
       background: linear-gradient(180deg, rgba(91,232,255,0.14), rgba(91,232,255,0.04));
       cursor: pointer;
       font-family: inherit;
+      text-align: left;
       transition: background 0.2s ease, box-shadow 0.2s ease;
     }
     .account-stats-btn:hover {
       background: linear-gradient(180deg, rgba(91,232,255,0.22), rgba(91,232,255,0.08));
       box-shadow: 0 0 16px rgba(91,232,255,0.35);
     }
+    .account-stats-btn-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .account-stats-btn-title {
       color: #5be8ff;
       font-size: 18px;
@@ -3384,8 +3417,96 @@
       color: #aab4c8;
       font-size: 11px;
       font-weight: 600;
-      text-align: center;
     }
+    /* Decorative emblem on the right, mirroring the RANK TIER GALLERY
+       button beside it - a static badge glyph rather than a live crest
+       since account-wide stats aren't tied to one specific rank. */
+    .account-stats-btn-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      color: #5be8ff;
+      filter: drop-shadow(0 0 6px currentColor);
+      transition: transform 0.15s ease;
+    }
+    .account-stats-btn:hover .account-stats-btn-icon { transform: translateX(4px); }
+    /* RANK TIER GALLERY entry point - same full-width "premium button" idea
+       as ACCOUNT & STATS above it, but its own frosted dark look with a
+       cyan/magenta glow instead of a flat cyan fill, so it reads as the
+       gateway to something bigger (see #rank-gallery-modal) rather than a
+       plain settings row. */
+    .control-group.rank-gallery-btn {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      background:
+        linear-gradient(rgba(16,16,26,0.75), rgba(16,16,26,0.75)) padding-box,
+        linear-gradient(120deg, #5be8ff, #ff3399) border-box;
+      backdrop-filter: blur(4px);
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+    .rank-gallery-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px rgba(91,232,255,0.35), 0 0 20px rgba(255,51,153,0.25);
+    }
+    /* Icon sits on the RIGHT now (markup order swapped to match) so both
+       promoted account cards share the same text-left / emblem-right
+       layout, matching .account-stats-btn beside it. */
+    .rank-gallery-btn-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      filter: drop-shadow(0 0 6px currentColor);
+      transition: transform 0.15s ease;
+    }
+    .rank-gallery-btn:hover .rank-gallery-btn-icon { transform: translateX(4px); }
+    .rank-gallery-btn-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .rank-gallery-btn-title {
+      font-size: 15px; font-weight: 900; letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #5be8ff, #ff9ecf);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .rank-gallery-btn-sub { color: #aab4c8; font-size: 10.5px; font-weight: 600; }
+    /* PLAYER NAME - promoted to the same full-width card treatment as
+       ACCOUNT & STATS and RANK TIER GALLERY above it (was a plain centred
+       .control-group that read as a mismatched leftover beneath two
+       premium-styled buttons). Label + lock status stack on the left, the
+       input sits right-aligned in its own sunken dark well. */
+    .control-group.player-name-card {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.03);
+    }
+    .player-name-card-left { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .player-name-card-label { font-size: 14px; font-weight: 900; color: #ccc; letter-spacing: 1px; }
+    .player-name-card-lock {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #ff9900;
+    }
+    .player-name-card-input {
+      width: 130px; height: 38px; padding: 0 10px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(8,8,14,0.65);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+      color: #fff; font-weight: 700; text-align: center; font-family: inherit;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .player-name-card-input:focus {
+      outline: none; border-color: rgba(91,232,255,0.6);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.5), 0 0 10px rgba(91,232,255,0.3);
+    }
+    .player-name-card-input:disabled { opacity: 0.6; cursor: not-allowed; }
     /* MUSIC/SFX as one column of 2 stacked rows instead of 2 separate grid
        cells - this outer control-group just hosts the pair, gap between
        them is wider than the parent grid's own row gap so the two still
@@ -4080,6 +4201,25 @@
     @keyframes newBestPulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.06); }
+    }
+    /* Fills in a beat after NEW BEST itself - see showLeaderboardPlacement,
+       which needs its own round trip (a count query) separate from the
+       score submission. Starts hidden/empty so a stale number from the
+       previous run never flashes before the new one resolves. */
+    .new-best-placement {
+      display: none;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #ffd84d;
+      text-shadow: 0 0 10px rgba(255,216,77,0.6);
+      margin: -10px 0 14px;
+      animation: newBestPlacementPop 0.3s ease-out 1;
+    }
+    @keyframes newBestPlacementPop {
+      0%   { opacity: 0; transform: translateY(-4px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
 
     #transition-wipe {
@@ -6344,7 +6484,7 @@
        all three used to fight over individually. ---------------- */
     #header-right-bar {
       position: fixed; top: 20px; right: 24px; z-index: 1000;
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
     }
     @media (max-width: 640px) {
       #header-right-bar { top: 10px; right: 10px; gap: 6px; }
@@ -6394,7 +6534,11 @@
       display: none; flex-direction: column; min-width: 160px;
       background: rgba(14,14,22,0.95); border: 1px solid rgba(91,232,255,0.35);
       border-radius: 10px; padding: 6px; gap: 2px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1001;
+      /* Higher than every modal in the file (max was 5000, the
+         name-prompt modal) - this menu needs to float above whichever one
+         happens to be open (e.g. opening it from inside the Rank Gallery or
+         Settings), not just above #header-right-bar's own 1000-tier. */
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 9000;
     }
     .account-badge-menu.show { display: flex; }
     .account-badge-menu button {
@@ -7037,6 +7181,11 @@
 
     /* ---- Customization Locker ---- */
     .cust-title { font-size: 16px; letter-spacing: 2px; color: #5be8ff; text-align: center; margin: 4px 0 14px; }
+    /* Live preview block (see cl-preview-* ids) - same banner/medals
+       markup as the real Profile Card, just scoped smaller and with its
+       own bottom margin before the tabs start. */
+    .cust-preview-banner { margin-bottom: 12px; }
+    .cust-preview-medals { margin-top: 0; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
     .cust-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
     .cust-tab {
       font-family: inherit; font-size: 10.5px; font-weight: 900; letter-spacing: 0.8px;
@@ -7060,6 +7209,231 @@
     .cust-option-locked:hover { border-color: rgba(255,255,255,0.12); color: #ccc; }
     .cust-medal-icon { font-size: 22px; }
     .cust-frame-swatch { width: 100%; height: 36px; border-radius: 6px; }
+
+    /* ---------------- RANK TIER GALLERY ---------------- */
+    #rank-gallery-modal {
+      display: none; position: fixed; inset: 0; z-index: 2600;
+      /* Glassmorphic now, not flat opaque - the menu behind glows faintly
+         through the blur instead of vanishing into solid black. The old
+         concern here was the custom cursor (#custom-cursor/#gp-cursor)
+         showing through at anything less than full opacity; a heavy 18px
+         blur plus a dark 0.82-alpha tint keeps it from reading as a visible
+         artifact while still letting the backdrop's color/light bleed in. */
+      background: rgba(6,8,16,0.82); backdrop-filter: blur(18px);
+      align-items: center; justify-content: center;
+    }
+    .rg-box {
+      width: 980px; max-width: 95vw; height: 700px; max-height: 92vh;
+      background: #14141f; border: 2px solid rgba(91,232,255,0.35); border-radius: 16px;
+      box-shadow: 0 0 50px rgba(91,232,255,0.2);
+      padding: 22px; position: relative;
+      display: flex; flex-direction: column;
+    }
+    .rg-close-btn { position: absolute; top: 12px; right: 16px; z-index: 3; }
+    .rg-title {
+      margin: 0 0 16px; text-align: center; font-size: 20px; letter-spacing: 3px;
+      background: linear-gradient(90deg, #5be8ff, #ff9ecf);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .rg-split { flex: 1; min-height: 0; display: flex; gap: 18px; }
+
+    /* Left pane - vertical scrollable rank track. */
+    .rg-list {
+      width: 230px; flex-shrink: 0; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 8px;
+      padding-right: 6px;
+    }
+    .rg-list-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08);
+      cursor: pointer; font-family: inherit; text-align: left;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    /* Hover glows in the TIER'S OWN colour (style="color:..." on the
+       button, read back here via currentColor) instead of a generic white
+       border - BRONZE glows copper on hover, DIAMOND glows ice-blue, etc. */
+    .rg-list-item:hover {
+      border-color: currentColor; transform: translateX(2px);
+      background: linear-gradient(90deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+      box-shadow: 0 0 12px currentColor;
+    }
+    .rg-list-item.active {
+      border-color: currentColor;
+      background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      box-shadow: 0 0 14px currentColor;
+    }
+    .rg-list-crest { width: 30px; height: 30px; flex-shrink: 0; }
+    .rg-list-name { flex: 1; font-size: 12.5px; font-weight: 900; letter-spacing: 1px; color: #fff; }
+    .rg-list-you {
+      font-size: 8px; font-weight: 900; letter-spacing: 0.5px; color: #1a0411;
+      background: linear-gradient(90deg, #5be8ff, #ff3399); border-radius: 999px; padding: 3px 7px;
+    }
+
+    /* Right pane - the big detail view. A vertical stack now (banner up
+       top, then data cards, progress, unlocks grid, flavour text below),
+       not one centred blob with empty space under it. */
+    .rg-detail {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px;
+      overflow-y: auto; padding-right: 4px;
+      /* Set per-selection in JS (renderRankGalleryDetail) to the chosen
+         tier's own color - everything below that reads an accent instead
+         of a hardcoded one (banner glow, emblem shadow, card borders)
+         re-colors itself automatically when a different rank is picked.
+         Falls back to the default cyan if JS hasn't run yet. */
+      --tier-accent: #5be8ff;
+    }
+    /* Widescreen cinematic banner - .pc-banner-art is the SAME child
+       structure the Profile Card uses, so .pc-rankbg-N (defined further
+       down) actually paints something here too: that class alone, with no
+       matching .pc-banner-art descendant, was rendering nothing but black,
+       which is why this pane used to look like a big empty void. */
+    .rg-detail-banner {
+      position: relative; flex-shrink: 0; height: 230px;
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    /* Faint geometric grid so the upper half of the banner (above the
+       fade) doesn't read as dead empty space - sits between the real
+       banner art and the darkening fade, barely visible on its own. */
+    .rg-banner-grid {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.5;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 26px 26px;
+    }
+    .rg-banner-fade {
+      position: absolute; inset: 0; z-index: 2;
+      background: linear-gradient(0deg, rgba(10,10,16,0.92) 0%, rgba(10,10,16,0.35) 55%, rgba(10,10,16,0.05) 100%);
+    }
+    .rg-banner-content {
+      position: relative; z-index: 3; height: 100%; box-sizing: border-box;
+      display: flex; align-items: center; gap: 18px; padding: 18px 20px;
+    }
+    .rg-detail-crest {
+      position: relative;
+      width: 72px; height: 72px; flex-shrink: 0;
+      filter: drop-shadow(0 0 16px currentColor);
+    }
+    /* Soft radial glow pooled behind the emblem, in the selected tier's
+       own accent - makes a 72px crest still feel like the focal point of
+       a 230px-tall banner instead of getting lost in it. */
+    .rg-detail-crest::before {
+      content: ''; position: absolute; z-index: -1;
+      inset: -26px;
+      background: radial-gradient(circle, var(--tier-accent) 0%, transparent 70%);
+      opacity: 0.35;
+    }
+    .rg-banner-text { min-width: 0; padding-bottom: 4px; }
+    .rg-detail-name {
+      font-size: 28px; font-weight: 900; letter-spacing: 3px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+    }
+    .rg-detail-flavor {
+      margin-top: 6px; max-width: 460px; font-size: 12px; font-style: italic;
+      color: #dfe4ee; text-shadow: 0 1px 6px rgba(0,0,0,0.9); line-height: 1.5;
+    }
+
+    /* Data cards - glassmorphic, neon-bordered, side by side instead of
+       floating pills. */
+    .rg-cards-row { display: flex; gap: 12px; flex-shrink: 0; }
+    .rg-card {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;
+      padding: 12px 16px; border-radius: 10px;
+      background: rgba(255,255,255,0.05); backdrop-filter: blur(6px);
+      /* Was a fixed cyan border/glow regardless of which tier was open -
+         now tracks the selected tier's own color via --tier-accent (set in
+         renderRankGalleryDetail), same as the banner/emblem. */
+      border: 1px solid color-mix(in srgb, var(--tier-accent) 55%, transparent);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--tier-accent) 25%, transparent);
+    }
+    .rg-card-format {
+      border-color: rgba(255,216,77,0.5);
+      box-shadow: 0 0 14px rgba(255,216,77,0.25);
+      animation: rgFormatPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes rgFormatPulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,216,77,0.2); }
+      50%      { box-shadow: 0 0 20px rgba(255,216,77,0.5); }
+    }
+    .rg-card-label { font-size: 9.5px; font-weight: 900; letter-spacing: 1.2px; color: #9fb0c8; }
+    .rg-card-value { font-size: 14px; font-weight: 900; letter-spacing: 0.5px; color: #fff; }
+    .rg-card-format .rg-card-value { color: #ffd84d; }
+
+    /* "Your Progress" - only shown on the player's OWN current tier (see
+       renderRankGalleryDetail). */
+    .rg-progress-card {
+      flex-shrink: 0; padding: 12px 16px; border-radius: 10px;
+      background: color-mix(in srgb, var(--tier-accent) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--tier-accent) 40%, transparent);
+    }
+    .rg-progress-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 10.5px; font-weight: 900; letter-spacing: 1px; color: var(--tier-accent); margin-bottom: 7px;
+    }
+    .rg-progress-head span:last-child { font-size: 13px; color: #fff; }
+    .rg-progress-bar {
+      width: 100%; height: 8px; border-radius: 999px; background: #272733; overflow: hidden;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.6);
+    }
+    .rg-progress-fill {
+      height: 100%; border-radius: 999px; transition: width 0.4s ease;
+      box-shadow: 0 0 8px var(--tier-accent);
+    }
+    /* Was a washed-out #aab4c8 at 10.5px, easy to miss next to the bright
+       card above it - bumped weight and contrast so "0 / 300 RP to
+       BRONZE" actually reads at a glance. */
+    .rg-progress-text { margin-top: 6px; font-size: 11.5px; font-weight: 700; color: #e4e8f2; }
+
+    .rg-detail-gm {
+      flex-shrink: 0; text-align: center;
+      font-size: 12px; font-weight: 700; line-height: 1.6; color: #ffe9a8;
+      background: rgba(255,216,77,0.08); border: 1px solid rgba(255,216,77,0.4);
+      border-radius: 10px; padding: 14px 18px;
+      text-shadow: 0 0 8px rgba(255,216,77,0.6);
+    }
+
+    /* "Unlocks at this tier" - fills what used to be dead space under the
+       requirement pills. */
+    .rg-unlocks-label { flex-shrink: 0; font-size: 10.5px; font-weight: 900; letter-spacing: 1.5px; color: #9fb0c8; }
+    .rg-unlocks-grid { flex-shrink: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .rg-unlock-item { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+    .rg-unlock-thumb {
+      width: 100%; height: 64px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 900; letter-spacing: 1px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+      position: relative; overflow: hidden;
+    }
+    /* RANK TITLE preview - a real pill badge instead of plain text sitting
+       in the box, so it reads as an actual UI element you'd unlock rather
+       than a placeholder label. Color comes from the parent thumb's own
+       style="color:..." (set per-tier in renderRankUnlocksGrid). */
+    .rg-unlock-title-pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 6px 16px; border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid currentColor;
+      font-size: 11.5px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;
+      text-shadow: 0 0 10px currentColor;
+    }
+    /* ACCENT FRAME preview - a small centred swatch inside the thumb
+       demonstrating the glowing border itself, instead of the whole thumb
+       box being the border. */
+    .rg-unlock-frame-swatch {
+      width: 36px; height: 36px; border-radius: 8px;
+      border-width: 3px; border-style: solid;
+      background: rgba(255,255,255,0.03);
+    }
+    .rg-unlock-label { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; color: #7c8496; }
+
+    @media (max-width: 760px) {
+      .rg-split { flex-direction: column; }
+      .rg-list { width: 100%; flex-direction: row; flex-wrap: wrap; max-height: 140px; }
+      .rg-list-item { flex: 1 1 calc(50% - 8px); }
+      .rg-cards-row { flex-direction: column; }
+    }
 
     /* ---------------- LEVEL ROAD, embedded inside ACCOUNT ---------------- */
     /* Same track/node styling as the popup modal (shared .prog-* classes),
@@ -7448,6 +7822,28 @@
     <div class="pc-box cust-box">
       <button type="button" class="prog-close-btn pc-close-btn" onclick="closeCustomizationModal()" aria-label="Close">&times;</button>
       <h2 class="cust-title">CUSTOMIZATION LOCKER</h2>
+
+      <!-- Live preview - a second copy of the Profile Card's own markup,
+           own ids (cl-preview-*) so it doesn't collide with the real one
+           in #profile-card-modal. renderProfileCard() updates BOTH sets of
+           ids on every call, so every pick*() function (which already
+           calls renderProfileCard()) keeps this in sync automatically -
+           no separate preview-rendering logic to maintain. -->
+      <div class="pc-banner pc-frame-carbon cust-preview-banner" id="cl-preview-banner">
+        <div class="pc-banner-art"></div>
+        <div class="pc-identity">
+          <span class="pc-avatar" id="cl-preview-avatar-letter">T</span>
+          <div class="pc-identity-text">
+            <div class="pc-name pc-font-default" id="cl-preview-name">TRAINER</div>
+            <div class="pc-crest-row">
+              <span class="pc-level-badge" id="cl-preview-level-badge"></span>
+              <span class="pc-rank-crest" id="cl-preview-rank-crest"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pc-medals cust-preview-medals" id="cl-preview-medals"></div>
+
       <div class="cust-tabs">
         <button type="button" class="cust-tab active" data-tab="badge" onclick="switchCustomizationTab('badge')">BADGE SLOT</button>
         <button type="button" class="cust-tab" data-tab="font" onclick="switchCustomizationTab('font')">NAME FONT</button>
@@ -7455,6 +7851,59 @@
         <button type="button" class="cust-tab" data-tab="medals" onclick="switchCustomizationTab('medals')">SHOWCASE MEDALS</button>
       </div>
       <div id="cust-grid" class="cust-grid"></div>
+    </div>
+  </div>
+
+  <!-- RANK TIER GALLERY - opened from Settings > ACCOUNT (see
+       openRankGalleryModal/ctrl-rankGallery). Split-pane: a scrollable list
+       of every tier on the left (selectGalleryRank), a big detail view of
+       whichever one is selected on the right (renderRankGalleryDetail) -
+       reuses rankCrestSvg/.pc-rankbg-N exactly as the Profile Card does, so
+       the crest and banner art are identical to what a player actually
+       sees elsewhere, not a separate redrawn version. -->
+  <div id="rank-gallery-modal" onclick="if (event.target === this) closeRankGalleryModal()">
+    <div class="rg-box">
+      <button type="button" class="prog-close-btn rg-close-btn" onclick="closeRankGalleryModal()" aria-label="Close">&times;</button>
+      <h2 class="rg-title">RANK TIER GALLERY</h2>
+      <div class="rg-split">
+        <div class="rg-list" id="rg-list"></div>
+        <div class="rg-detail" id="rg-detail">
+          <div class="rg-detail-banner" id="rg-detail-banner">
+            <div class="pc-banner-art"></div>
+            <div class="rg-banner-grid"></div>
+            <div class="rg-banner-fade"></div>
+            <div class="rg-banner-content">
+              <div class="rg-detail-crest" id="rg-detail-crest"></div>
+              <div class="rg-banner-text">
+                <div class="rg-detail-name" id="rg-detail-name">ROOKIE</div>
+                <div class="rg-detail-flavor" id="rg-detail-flavor"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rg-cards-row">
+            <div class="rg-card">
+              <span class="rg-card-label">TIER REQUIREMENT</span>
+              <span class="rg-card-value" id="rg-detail-range">0 - 300 RP</span>
+            </div>
+            <div class="rg-card rg-card-format">
+              <span class="rg-card-label">AUTO-MATCH FORMAT</span>
+              <span class="rg-card-value" id="rg-detail-format">First to 3 (FT3)</span>
+            </div>
+          </div>
+
+          <div class="rg-progress-card" id="rg-progress-card" style="display:none;">
+            <div class="rg-progress-head"><span>YOUR PROGRESS</span><span id="rg-progress-rp"></span></div>
+            <div class="rg-progress-bar"><div class="rg-progress-fill" id="rg-progress-fill"></div></div>
+            <div class="rg-progress-text" id="rg-progress-text"></div>
+          </div>
+
+          <div class="rg-detail-gm" id="rg-detail-gm" style="display:none;"></div>
+
+          <div class="rg-unlocks-label">UNLOCKS AT THIS TIER</div>
+          <div class="rg-unlocks-grid" id="rg-unlocks-grid"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -8333,32 +8782,26 @@
       </div>
 
       <div id="settings-stage" class="menu-stage">
+        <!-- 4 category tabs (GAMEPLAY/AUDIO/APPEARANCE/ACCOUNT) instead of the
+             old GENERAL/HANDLING split - GENERAL used to dump every
+             unrelated toggle/slider/dropdown/account action into one long
+             column; each now has its own focused tab (see
+             switchSettingsSubtab). -->
         <div class="settings-subtabs">
-          <button type="button" class="settings-subtab active" id="settings-subtab-general" onclick="switchSettingsSubtab('general')">GENERAL</button>
-          <button type="button" class="settings-subtab" id="settings-subtab-handling" onclick="switchSettingsSubtab('handling')">HANDLING</button>
+          <button type="button" class="settings-subtab active" id="settings-subtab-gameplay" onclick="switchSettingsSubtab('gameplay')">GAMEPLAY</button>
+          <button type="button" class="settings-subtab" id="settings-subtab-audio" onclick="switchSettingsSubtab('audio')">AUDIO</button>
+          <button type="button" class="settings-subtab" id="settings-subtab-appearance" onclick="switchSettingsSubtab('appearance')">APPEARANCE</button>
+          <button type="button" class="settings-subtab" id="settings-subtab-account" onclick="switchSettingsSubtab('account')">ACCOUNT</button>
         </div>
-        <div class="settings-grid" id="settings-grid-general">
-          <div class="control-group" id="ctrl-bg">
-            BACKGROUNDS
-            <button id="bgToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleBgSetting(); this.blur();" onfocus="setMenuIndex(0)">ON</button>
-          </div>
 
-          <div class="control-group" id="ctrl-bgControls">
-            BG CONTROLS
-            <button id="bgCtrlToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleBgControlsSetting(); this.blur();" onfocus="setMenuIndex(1)">ON</button>
-          </div>
-
-          <!-- Gates individual V2 features - the title-drop intro is the first
-               one. Anything without a V2 version yet just ignores this and
-               stays V1 regardless of this setting. -->
-          <div class="control-group" id="ctrl-v2Beta">
-            V2 BETA
-            <button id="v2BetaToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleV2BetaSetting(); this.blur();" onfocus="setMenuIndex(2)">ON</button>
-          </div>
-
+        <!-- GAMEPLAY: input/control settings, plus DAS/ARR/SDF/DCD timing
+             (formerly its own HANDLING subtab) living in one place since
+             they're all "how the game responds to your input", not two
+             separate concerns. -->
+        <div class="settings-grid" id="settings-grid-gameplay">
           <div class="control-group" id="ctrl-touch">
             TOUCH LAYOUT
-            <button id="touchLayoutBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="openTouchEditor(); this.blur();" onfocus="setMenuIndex(3)">OPEN</button>
+            <button id="touchLayoutBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="openTouchEditor(); this.blur();" onfocus="setMenuIndex(0)">OPEN</button>
           </div>
 
           <!-- V1 = the on-screen button pad (unchanged). V2 = tap/swipe/drag
@@ -8366,17 +8809,106 @@
                toggleTouchControlMode/bindGestureSurface. -->
           <div class="control-group" id="ctrl-touchMode">
             CONTROL SCHEME
-            <button id="touchControlModeBtn" class="menu-btn" style="width: 150px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleTouchControlMode(); this.blur();" onfocus="setMenuIndex(3)">V1 BUTTONS</button>
+            <button id="touchControlModeBtn" class="menu-btn" style="width: 150px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleTouchControlMode(); this.blur();" onfocus="setMenuIndex(1)">V1 BUTTONS</button>
           </div>
 
           <div class="control-group" id="ctrl-keybinds">
             KEYBINDS
-            <button id="keybindBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="openKeybinds(); this.blur();" onfocus="setMenuIndex(4)">OPEN</button>
+            <button id="keybindBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="openKeybinds(); this.blur();" onfocus="setMenuIndex(2)">OPEN</button>
           </div>
 
+          <!-- Gates individual V2 features - the title-drop intro is the first
+               one. Anything without a V2 version yet just ignores this and
+               stays V1 regardless of this setting. -->
+          <div class="control-group" id="ctrl-v2Beta">
+            V2 BETA
+            <button id="v2BetaToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleV2BetaSetting(); this.blur();" onfocus="setMenuIndex(3)">ON</button>
+          </div>
+
+          <!-- DAS/ARR/SDF/DCD - standard competitive Tetris timing settings
+               (see the HANDLING_LIMITS/applyHandlingSettings comment in the
+               script for what each one actually does). Spans both grid
+               columns and lays its own 5 rows out in a single column
+               (.handling-subsection), same reasoning .handling-grid always
+               had: sliders with a full description line under them don't
+               fit two to a row. -->
+          <div class="handling-subsection">
+            <div class="control-group handling-group handling-presets" id="ctrl-handlingPresets">
+              PROFILE
+              <div class="handling-preset-row">
+                <select id="handlingPresetSelect" onchange="this.blur(); applyHandlingPreset(this.value); sfx.menuClick();">
+                  <option value="classic">CLASSIC (DEFAULT)</option>
+                  <option value="standard">STANDARD</option>
+                  <option value="fast">FAST</option>
+                  <option value="custom1">CUSTOM 1</option>
+                  <option value="custom2">CUSTOM 2</option>
+                  <option value="custom3">CUSTOM 3</option>
+                </select>
+                <button type="button" class="menu-btn handling-preset-btn" onclick="saveHandlingPreset(); this.blur();">SAVE</button>
+                <button type="button" class="menu-btn handling-preset-btn" onclick="resetHandlingToDefault(); this.blur();">RESET</button>
+              </div>
+              <div class="handling-desc">Pick a profile to load it instantly. Tweak the sliders below, then pick CUSTOM 1/2/3 and hit SAVE to keep them. RESET always puts DAS/ARR/SDF/DCD back to this game's original pre-HANDLING-tab feel.</div>
+            </div>
+
+            <div class="control-group handling-group" id="ctrl-das">
+              DAS <span class="handling-unit">(ms)</span>
+              <div class="slider-row">
+                <div class="handling-slider-wrap">
+                  <input type="range" id="dasSlider" class="settings-slider" min="0" max="500" step="1"
+                    oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(9)">
+                  <div class="handling-tick" id="dasTick" title="Default"></div>
+                </div>
+                <span class="slider-value" id="dasValue">367ms</span>
+              </div>
+              <div class="handling-desc">Delayed Auto Shift - how long you hold a direction before it starts repeating on its own.</div>
+            </div>
+
+            <div class="control-group handling-group" id="ctrl-arr">
+              ARR <span class="handling-unit">(ms)</span>
+              <div class="slider-row">
+                <div class="handling-slider-wrap">
+                  <input type="range" id="arrSlider" class="settings-slider" min="0" max="100" step="1"
+                    oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(10)">
+                  <div class="handling-tick" id="arrTick" title="Default"></div>
+                </div>
+                <span class="slider-value" id="arrValue">33ms</span>
+              </div>
+              <div class="handling-desc">Auto Repeat Rate - how fast it keeps repeating after that. 0 = as fast as possible.</div>
+            </div>
+
+            <div class="control-group handling-group" id="ctrl-sdf">
+              SDF
+              <div class="slider-row">
+                <div class="handling-slider-wrap">
+                  <input type="range" id="sdfSlider" class="settings-slider" min="1" max="41" step="1"
+                    oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(11)">
+                  <div class="handling-tick" id="sdfTick" title="Default"></div>
+                </div>
+                <span class="slider-value" id="sdfValueLabel">20</span>
+              </div>
+              <div class="handling-desc">Soft Drop Factor - how many times faster soft drop falls than normal gravity. Max (&infin;) slams straight to the floor the instant you hold down.</div>
+            </div>
+
+            <div class="control-group handling-group" id="ctrl-dcd">
+              DCD <span class="handling-unit">(ms)</span>
+              <div class="slider-row">
+                <div class="handling-slider-wrap">
+                  <input type="range" id="dcdSlider" class="settings-slider" min="0" max="300" step="1"
+                    oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(12)">
+                  <div class="handling-tick" id="dcdTick" title="Default"></div>
+                </div>
+                <span class="slider-value" id="dcdValue">0ms</span>
+              </div>
+              <div class="handling-desc">DAS Cut Delay - how long after letting go before DAS can charge again on your next press.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUDIO -->
+        <div class="settings-grid audio-grid" id="settings-grid-audio" style="display:none;">
           <!-- 1 column x 2 rows instead of 2 side-by-side cells - MUSIC and
-               SFX read as one related pair now instead of competing for
-               attention with every other unrelated toggle in the grid. -->
+               SFX read as one related pair, centred on their own now that
+               they're not sharing a grid with anything else. -->
           <div class="control-group volume-group" id="ctrl-volumeGroup">
             <div class="control-group" id="ctrl-musicVol">
               MUSIC VOLUME
@@ -8398,10 +8930,23 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Full-width and separate from the cramped 2-column grid above -
-               it was squeezed into the THEME cell at a width wider than that
-               cell itself, overlapping the neighbouring control. -->
+        <!-- APPEARANCE -->
+        <div class="settings-grid" id="settings-grid-appearance" style="display:none;">
+          <div class="control-group" id="ctrl-bg">
+            BACKGROUNDS
+            <button id="bgToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleBgSetting(); this.blur();" onfocus="setMenuIndex(0)">ON</button>
+          </div>
+
+          <div class="control-group" id="ctrl-bgControls">
+            BG CONTROLS
+            <button id="bgCtrlToggleBtn" class="menu-btn" style="width: 120px; height: 40px; padding: 0; margin: 0; border: 2px solid #555; background: #333344; color: #5be8ff;" onclick="toggleBgControlsSetting(); this.blur();" onfocus="setMenuIndex(1)">ON</button>
+          </div>
+
+          <!-- Its own card now (see .theme-preview-group) - padded and
+               bordered to read as one distinct block, not just a canvas
+               dropped between two toggles. -->
           <div class="control-group theme-preview-group" id="ctrl-themePreview">
             THEME PREVIEW
             <canvas class="theme-preview-canvas" id="themePreviewCanvas" width="620" height="80"></canvas>
@@ -8437,102 +8982,51 @@
               <option value="classic">CLASSIC</option>
             </select>
           </div>
-
-          <!-- Promoted to its own full-width row under the theme pickers -
-               this is where sign-in/sign-up AND lifetime stats both live
-               now, not just a login shortcut. Not part of the
-               keyboard/gamepad-nav grid (see menuItems/setMenuIndex), same
-               reasoning as every other modal-opening button on this page. -->
-          <button type="button" class="control-group account-stats-btn" id="ctrl-account" onclick="openAccountModal()" tabindex="-1">
-            <span class="account-stats-btn-title">ACCOUNT &amp; STATS</span>
-            <span class="account-stats-btn-sub">Sign in, and track your lifetime PPS, APM, match record and personal bests</span>
-          </button>
-
-          <!-- Right under ACCOUNT & STATS now instead of up at the top of the
-               grid - its own localStorage key (see getPlayerName/
-               setPlayerName), not bundled into the rest of this settings
-               blob, so it survives independent of every other preference. -->
-          <div class="control-group" id="ctrl-playerName">
-            PLAYER NAME
-            <input id="playerNameInput" type="text" maxlength="20" placeholder="Anonymous"
-                   style="width: 120px; height: 36px; padding: 0 8px; border-radius: 6px; border: 2px solid #555; background: #333344; color: #fff; font-weight: 700; text-align: center; font-family: inherit;"
-                   onchange="setPlayerNameFromSettings(this.value);">
-            <div id="playerNameCooldown" style="display:none; color:#ff9900; font-size:10px; font-weight:700; letter-spacing:0.5px; margin-top:4px; text-align:center;"></div>
-          </div>
         </div>
 
-        <!-- HANDLING: DAS/ARR/SDF/DCD - standard competitive Tetris timing
-             settings (see the HANDLING_LIMITS/applyHandlingSettings comment
-             in the script for what each one actually does). Hidden by
-             default, toggled by the GENERAL/HANDLING subtabs above. -->
-        <div class="settings-grid handling-grid" id="settings-grid-handling" style="display:none;">
-          <div class="control-group handling-group handling-presets" id="ctrl-handlingPresets">
-            PROFILE
-            <div class="handling-preset-row">
-              <select id="handlingPresetSelect" onchange="this.blur(); applyHandlingPreset(this.value); sfx.menuClick();">
-                <option value="classic">CLASSIC (DEFAULT)</option>
-                <option value="standard">STANDARD</option>
-                <option value="fast">FAST</option>
-                <option value="custom1">CUSTOM 1</option>
-                <option value="custom2">CUSTOM 2</option>
-                <option value="custom3">CUSTOM 3</option>
-              </select>
-              <button type="button" class="menu-btn handling-preset-btn" onclick="saveHandlingPreset(); this.blur();">SAVE</button>
-              <button type="button" class="menu-btn handling-preset-btn" onclick="resetHandlingToDefault(); this.blur();">RESET</button>
-            </div>
-            <div class="handling-desc">Pick a profile to load it instantly. Tweak the sliders below, then pick CUSTOM 1/2/3 and hit SAVE to keep them. RESET always puts DAS/ARR/SDF/DCD back to this game's original pre-HANDLING-tab feel.</div>
-          </div>
+        <!-- ACCOUNT -->
+        <div class="settings-grid" id="settings-grid-account" style="display:none;">
+          <!-- This is where sign-in/sign-up AND lifetime stats both live,
+               not just a login shortcut. Not part of the keyboard/gamepad-
+               nav grid (see menuItems/setMenuIndex), same reasoning as every
+               other modal-opening button on this page. -->
+          <button type="button" class="control-group account-stats-btn" id="ctrl-account" onclick="openAccountModal()" tabindex="-1">
+            <span class="account-stats-btn-text">
+              <span class="account-stats-btn-title">ACCOUNT &amp; STATS</span>
+              <span class="account-stats-btn-sub">Sign in, and track your lifetime PPS, APM, match record and personal bests</span>
+            </span>
+            <svg class="account-stats-btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 12.5a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5Zm0 2.25c-4.78 0-9 2.32-9 5.6v1.15a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-1.15c0-3.28-4.22-5.6-9-5.6Z"/>
+            </svg>
+          </button>
 
-          <div class="control-group handling-group" id="ctrl-das">
-            DAS <span class="handling-unit">(ms)</span>
-            <div class="slider-row">
-              <div class="handling-slider-wrap">
-                <input type="range" id="dasSlider" class="settings-slider" min="0" max="500" step="1"
-                  oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(9)">
-                <div class="handling-tick" id="dasTick" title="Default"></div>
-              </div>
-              <span class="slider-value" id="dasValue">367ms</span>
-            </div>
-            <div class="handling-desc">Delayed Auto Shift - how long you hold a direction before it starts repeating on its own.</div>
-          </div>
+          <!-- Adjacent to ACCOUNT & STATS per the request - same full-width
+               premium-button treatment, its own cyan/magenta glow and a
+               small live rank crest so it doesn't read as just another
+               plain settings row. Icon now sits on the right (markup order
+               matches .account-stats-btn beside it, text-left/emblem-right
+               on both). -->
+          <button type="button" class="control-group rank-gallery-btn" id="ctrl-rankGallery" onclick="openRankGalleryModal()" tabindex="-1">
+            <span class="rank-gallery-btn-text">
+              <span class="rank-gallery-btn-title">RANK TIER GALLERY</span>
+              <span class="rank-gallery-btn-sub">Browse every rank, its RP requirement and match format</span>
+            </span>
+            <span class="rank-gallery-btn-icon" id="rank-gallery-btn-icon"></span>
+          </button>
 
-          <div class="control-group handling-group" id="ctrl-arr">
-            ARR <span class="handling-unit">(ms)</span>
-            <div class="slider-row">
-              <div class="handling-slider-wrap">
-                <input type="range" id="arrSlider" class="settings-slider" min="0" max="100" step="1"
-                  oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(10)">
-                <div class="handling-tick" id="arrTick" title="Default"></div>
-              </div>
-              <span class="slider-value" id="arrValue">33ms</span>
+          <!-- Its own localStorage key (see getPlayerName/setPlayerName),
+               not bundled into the rest of this settings blob, so it
+               survives independent of every other preference. Promoted to
+               the same full-width card treatment as the two buttons above
+               it - see .player-name-card. -->
+          <div class="control-group player-name-card" id="ctrl-playerName">
+            <div class="player-name-card-left">
+              <span class="player-name-card-label">PLAYER NAME</span>
+              <span id="playerNameCooldown" class="player-name-card-lock" style="display:none;"></span>
             </div>
-            <div class="handling-desc">Auto Repeat Rate - how fast it keeps repeating after that. 0 = as fast as possible.</div>
-          </div>
-
-          <div class="control-group handling-group" id="ctrl-sdf">
-            SDF
-            <div class="slider-row">
-              <div class="handling-slider-wrap">
-                <input type="range" id="sdfSlider" class="settings-slider" min="1" max="41" step="1"
-                  oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(11)">
-                <div class="handling-tick" id="sdfTick" title="Default"></div>
-              </div>
-              <span class="slider-value" id="sdfValueLabel">20</span>
-            </div>
-            <div class="handling-desc">Soft Drop Factor - how many times faster soft drop falls than normal gravity. Max (&infin;) slams straight to the floor the instant you hold down.</div>
-          </div>
-
-          <div class="control-group handling-group" id="ctrl-dcd">
-            DCD <span class="handling-unit">(ms)</span>
-            <div class="slider-row">
-              <div class="handling-slider-wrap">
-                <input type="range" id="dcdSlider" class="settings-slider" min="0" max="300" step="1"
-                  oninput="updateHandlingUI()" onchange="saveSettings(); sfx.menuClick();" onfocus="setMenuIndex(12)">
-                <div class="handling-tick" id="dcdTick" title="Default"></div>
-              </div>
-              <span class="slider-value" id="dcdValue">0ms</span>
-            </div>
-            <div class="handling-desc">DAS Cut Delay - how long after letting go before DAS can charge again on your next press.</div>
+            <input id="playerNameInput" type="text" maxlength="20" placeholder="Anonymous"
+                   class="player-name-card-input"
+                   onchange="setPlayerNameFromSettings(this.value);">
           </div>
         </div>
       </div>
@@ -8574,8 +9068,13 @@
     <div class="results-card">
       <div class="results-head">
         <!-- Shown above the title, not beside it, when a run actually sets
-             a new personal best - see triggerGameOver. -->
+             a new personal best - see triggerGameOver. The placement line
+             underneath fills in async (see showLeaderboardPlacement) once
+             the count query comes back, since it needs its own round trip
+             separate from the submission itself - starts empty/hidden so
+             it never flashes a stale placement from the previous run. -->
         <div id="go-new-best" class="new-best-badge">&#9733; NEW BEST! &#9733;</div>
+        <div id="go-new-best-placement" class="new-best-placement" style="display:none;"></div>
         <h1 id="overlay-title" class="main-title">GAME OVER</h1>
       </div>
 
@@ -9378,9 +9877,69 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.194';
+    const GAME_VERSION = '1.199';
 
     const PATCH_NOTES = [
+      {
+        version: '1.199',
+        date: '13 Oct 2026',
+        title: 'Live customization preview, and leaderboard visibility',
+        changes: [
+          { tag: 'new', text: '<b>The Customization Locker now shows a live preview of your Profile Card</b> right above the tabs - every Badge Slot/Name Font/Banner Frame/Showcase Medal you pick updates it instantly, no more closing the locker and reopening PROFILE CARD just to see what you changed.' },
+          { tag: 'new', text: '<b>Setting a new leaderboard record now shows your exact placement</b> under NEW BEST ("#4 on the leaderboard", or "#1 ON THE LEADERBOARD!" for the top spot) - a separate quick lookup after the submission, so it fills in a beat after the badge itself appears.' },
+          { tag: 'fix', text: '<b>A failed leaderboard submission used to fail completely silently</b> - no error, no log, nothing, which made "my score never showed up" impossible to actually diagnose. It now logs exactly why to the browser console every time: not signed in (guest runs never post to the global board - this is the most likely reason a run "would have" set a record but didn\'t), the insert being rejected, or a network/offline failure.' }
+        ]
+      },
+      {
+        version: '1.198',
+        date: '13 Oct 2026',
+        title: 'Account drawer and RANK TIER GALLERY get a glass-and-glow pass',
+        changes: [
+          { tag: 'change', text: '<b>PLAYER NAME is a full-width card now</b>, matching ACCOUNT &amp; STATS and RANK TIER GALLERY above it instead of looking like a leftover plain settings row - label and the "Locked - X days left" status stack on the left, the name field sits right-aligned in its own sunken dark well.' },
+          { tag: 'change', text: '<b>ACCOUNT &amp; STATS and RANK TIER GALLERY are both laid out title-left/emblem-right now</b> - a glowing 36px icon sits on the right side of each and nudges toward you 4px on hover.' },
+          { tag: 'fix', text: 'The top-right header bar (level widget, account pill, HOW TO PLAY) tightened to a consistent 8px gap between pieces.' },
+          { tag: 'change', text: '<b>RANK TIER GALLERY\'s backdrop is glassmorphic now</b> - a dark tinted blur the main menu glows faintly through, instead of a flat opaque panel.' },
+          { tag: 'new', text: '<b>Every rank you select now re-colors the whole right-hand pane to its own accent</b> - the hero banner\'s glow behind the emblem, both data cards\' borders, and the YOUR PROGRESS card all pick up that tier\'s color instead of a fixed cyan.' },
+          { tag: 'change', text: 'The hero banner\'s emblem is 72px now (down from 120px) and sits centered beside the rank name/flavor text instead of bottom-aligned, with a soft radial glow pooled behind it and a faint grid pattern filling the space above the fade.' },
+          { tag: 'fix', text: '<b>"X / Y RP to NEXT TIER" under YOUR PROGRESS was washed-out grey at 10.5px</b> - bumped to a brighter, bolder weight so it actually reads, and the bar itself now has an inset track shadow plus a glow on the fill.' },
+          { tag: 'change', text: '<b>UNLOCKS AT THIS TIER now shows real previews instead of placeholder boxes</b> - RANK TITLE renders as an actual glowing pill badge, and ACCENT FRAME shows a small centered swatch demonstrating the glow instead of the whole box being the border.' }
+        ]
+      },
+      {
+        version: '1.197',
+        date: '13 Oct 2026',
+        title: 'RANK TIER GALLERY rebuilt - no more empty void on the right',
+        changes: [
+          { tag: 'fix', text: '<b>Found the actual cause of the big empty right-hand pane: the banner background CSS never matched its own markup</b> - it needed a `.pc-banner-art` child element to actually paint anything, which the gallery\'s banner never had, so every tier just showed black no matter which one was selected. It has that child now, so the real per-tier banner art (the same art the Profile Card uses) finally shows.' },
+          { tag: 'new', text: '<b>That banner is cinematic now</b> - full width, a dark bottom fade for text legibility, the crest and rank name laid out over it left-aligned instead of floating in empty space.' },
+          { tag: 'new', text: '<b>TIER REQUIREMENT and AUTO-MATCH FORMAT are real glassmorphic data cards now</b> (frosted blur + neon border) instead of floating pills.' },
+          { tag: 'new', text: '<b>Added a "YOUR PROGRESS" bar</b> - shows automatically when you\'re looking at your OWN current tier: exact RP, a fill bar, and how much is left to the next tier.' },
+          { tag: 'new', text: '<b>Added an "UNLOCKS AT THIS TIER" grid</b> (Profile Banner thumbnail, Rank Title, Accent Frame swatch) and a one-line flavour quote per rank, filling what used to be dead space under the requirement cards.' },
+          { tag: 'change', text: '<b>ROOKIE\'s crest is a real carbon-fibre-woven crest now</b>, not a flat grey circle - deliberately the least ornate material in the set (no gems, no glow), so BRONZE and up still read as a step up in detail.' },
+          { tag: 'fix', text: 'The modal background is fully opaque now instead of translucent - the custom cursor could faintly show through the old blur in the empty area behind the content.' },
+          { tag: 'change', text: 'Inactive ranks in the left-hand list now glow in their OWN colour on hover instead of a generic white border.' }
+        ]
+      },
+      {
+        version: '1.196',
+        date: '13 Oct 2026',
+        title: 'Rank crests are real "materials" now, not just coloured outlines',
+        changes: [
+          { tag: 'change', text: '<b>Every rank crest redrawn with its own material</b>, matching each tier\'s own theme instead of all 9 sharing one plain gradient-fill outline: BRONZE is weathered copper with patina blotches, SILVER is polished chrome with a hard specular streak, GOLD is a radiant gem-cut facet with sparkle accents, PLATINUM is electric-turquoise metal, DIAMOND is a prismatic multi-stop refraction with twinkling glints, EMERALD is a deep radioactive glow, MASTERS is a royal violet void with soft concentric aura rings, and GRANDMASTER layers two gold stars over a dark obsidian disc with faint gold crack veins. ROOKIE stays deliberately plain (a dull brushed gunmetal disc) so the jump in detail from BRONZE up actually reads as a step up.' },
+          { tag: 'new', text: 'Each material is built from real SVG gradients and facet lines now instead of a flat tint - every crest gets its own uniquely-numbered gradient definitions, so all 9 can render correctly at once (the Rank Gallery\'s own left-hand list shows every tier side by side).' }
+        ]
+      },
+      {
+        version: '1.195',
+        date: '13 Oct 2026',
+        title: 'Settings reorganized into tabs, plus the RANK TIER GALLERY',
+        changes: [
+          { tag: 'change', text: '<b>Settings is 4 focused tabs now instead of one long GENERAL column</b> - GAMEPLAY (touch/control scheme/keybinds/V2 beta/DAS/ARR/SDF/DCD), AUDIO (music/SFX), APPEARANCE (backgrounds/theme/Puyo skin), and ACCOUNT (sign-in, player name, and the new Rank Gallery below).' },
+          { tag: 'change', text: 'THEME PREVIEW is its own bordered card now instead of a canvas just floating between two toggles.' },
+          { tag: 'fix', text: 'The account dropdown menu (top-right) could end up stuck behind an open modal - it now always floats above everything else in the game, no matter what else is open underneath it.' },
+          { tag: 'new', text: '<b>RANK TIER GALLERY</b> (Settings &rarr; ACCOUNT) - browse all 9 ranks in one place: a scrollable list on the left, and on the right a large crest, that tier\'s actual banner art, its exact RP requirement, and its auto-match format in a pulsing neon badge. Selecting GRANDMASTER explains the top-10 requirement directly.' }
+        ]
+      },
       {
         version: '1.194',
         date: '13 Oct 2026',
@@ -12541,7 +13100,7 @@
     // which of the two a player actually shows as is decided by
     // rankTierIndexFor's top-10 check below, not by rating alone.
     const RANK_TIERS = [
-        { name: 'ROOKIE', min: 0, max: 300, format: 3, color: '#8a93a6', sides: 0 },
+        { name: 'ROOKIE', min: 0, max: 300, format: 3, color: '#8a93a6', sides: 3 },
         { name: 'BRONZE', min: 301, max: 600, format: 3, color: '#c47a3d', sides: 6 },
         { name: 'SILVER', min: 601, max: 900, format: 3, color: '#cdd8e4', sides: 4 },
         { name: 'GOLD', min: 901, max: 1200, format: 5, color: '#ffc43d', sides: 5 },
@@ -12593,34 +13152,150 @@
         return -Math.min(40, 20 + Math.floor(-ratingDiff / 25));
     }
 
-    // One shared outline per rank tier, same generator functions LEVEL_TIERS
-    // uses (regularPolygonPts/starPts/centerPoints/ptsToStr) so every crest
-    // is centred the same reliable way, but never the SAME shape as a
-    // level-badge tier at the same step - these are two separate systems a
-    // player sees side by side on the profile card.
+    // ---- shared helpers for the detailed per-tier crest rendering below ----
+    // A fresh numeric suffix per crest actually drawn, so two crests on
+    // screen at once (the Rank Gallery's left-hand list renders all 9) never
+    // collide on the same <radialGradient>/<linearGradient> id - SVG defs
+    // are technically page-global, not scoped to one inline <svg>.
+    let rankCrestUidCounter = 0;
+    function rankGrad(defs, type, stops, coords) {
+        coords = coords || {};
+        const uid = 'rkg' + (rankCrestUidCounter++);
+        const stopEls = stops.map(s => `<stop offset="${s[0]}%" stop-color="${s[1]}"${s[2] !== undefined ? ` stop-opacity="${s[2]}"` : ''}/>`).join('');
+        if (type === 'radial') {
+            defs.push(`<radialGradient id="${uid}" cx="${coords.cx !== undefined ? coords.cx : 35}%" cy="${coords.cy !== undefined ? coords.cy : 30}%" r="${coords.r !== undefined ? coords.r : 75}%">${stopEls}</radialGradient>`);
+        } else {
+            defs.push(`<linearGradient id="${uid}" x1="${coords.x1 !== undefined ? coords.x1 : 0}%" y1="${coords.y1 !== undefined ? coords.y1 : 0}%" x2="${coords.x2 !== undefined ? coords.x2 : 100}%" y2="${coords.y2 !== undefined ? coords.y2 : 100}%">${stopEls}</linearGradient>`);
+        }
+        return `url(#${uid})`;
+    }
+    // Thin lines from the shape's own centre out to each of its vertices -
+    // the "cut gem"/faceted look every tier above ROOKIE uses, cheap to add
+    // to any polygon since it's just the same point list reused.
+    function facetLines(rawPts, color, opacity) {
+        return rawPts.map(([x, y]) => `<line x1="50" y1="50" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${color}" stroke-width="1" opacity="${opacity || 0.35}"/>`).join('');
+    }
+    function miniSparkle(cx, cy, r, color, cls) {
+        const p = [[cx, cy - r], [cx + r * 0.28, cy - r * 0.28], [cx + r, cy], [cx + r * 0.28, cy + r * 0.28], [cx, cy + r], [cx - r * 0.28, cy + r * 0.28], [cx - r, cy], [cx - r * 0.28, cy - r * 0.28]];
+        return `<path class="${cls || ''}" d="M${p.map(([x, y]) => x.toFixed(1) + ',' + y.toFixed(1)).join(' L')} Z" fill="${color}"/>`;
+    }
+
+    // Every rank gets its own hand-built "material" - not just a recoloured
+    // outline - matching the tier's own flavour (weathered bronze, polished
+    // chrome, radiant gold, prismatic ice, radioactive emerald, a royal
+    // violet void, and GRANDMASTER's extravagant obsidian-and-gold) per the
+    // original design brief's own tier-visual-theme column. Same shape
+    // generator functions LEVEL_TIERS uses (regularPolygonPts/starPts/
+    // centerPoints/ptsToStr) so every crest is centred the same reliable
+    // way, but never the SAME shape as a level-badge tier at the same step -
+    // these are two separate systems a player sees side by side on the
+    // profile card.
     function rankCrestSvg(tierIdx, opts) {
         opts = opts || {};
         const tier = RANK_TIERS[tierIdx];
         const color = opts.color || tier.color;
+        const defs = [];
         let inner;
-        if (tier.sides === 0) {
-            inner = `<circle cx="50" cy="50" r="44" fill="${color}22" stroke="${color}" stroke-width="5"/>` +
-                `<circle cx="50" cy="50" r="30" fill="none" stroke="${color}" stroke-width="2" opacity="0.7"/>`;
-        } else if (tier.sides === -1) {
-            // GRANDMASTER - extravagant on purpose: a slowly spinning
-            // 6-point star, a counter-spinning dashed halo, and a tiny
-            // crown spike on top, all animated (see .rk-gm-spin/-rev).
-            const star = ptsToStr(starPts(6, 46, 22));
-            inner = `<g class="rk-gm-spin">` +
-                `<polygon points="${star}" fill="${color}2e" stroke="${color}" stroke-width="4"/>` +
+
+        if (tier.sides === -1) {
+            // GRANDMASTER - "extravagant prismatic obsidian & radiant gold".
+            // A dark obsidian disc (with a couple of thin gold crack veins)
+            // sits BEHIND two overlapping gold stars at different scales
+            // (the prismatic layering), a counter-spinning dashed halo, and
+            // a small gem-tipped crown - all still animated via
+            // .rk-gm-spin/-rev exactly as before.
+            const obsidian = rankGrad(defs, 'radial', [[0, '#2a2030'], [60, '#140d18'], [100, '#030103']], { cx: 40, cy: 32, r: 85 });
+            const gold = rankGrad(defs, 'radial', [[0, '#fff3c4'], [45, color], [100, '#8a5a00']], { cx: 38, cy: 28, r: 80 });
+            const starOuter = ptsToStr(starPts(6, 46, 22));
+            const starInner = ptsToStr(starPts(6, 34, 16));
+            inner = `<circle cx="50" cy="50" r="46" fill="${obsidian}"/>` +
+                `<path d="M20,70 L34,54 L30,40 L44,26" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.55"/>` +
+                `<path d="M78,66 L64,58 L68,42 L58,30" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.55"/>` +
+                `<g class="rk-gm-spin">` +
+                `<polygon points="${starOuter}" fill="${gold}" stroke="${color}" stroke-width="2.5" opacity="0.95"/>` +
+                `</g>` +
+                `<g class="rk-gm-spin-rev">` +
+                `<polygon points="${starInner}" fill="none" stroke="#fff3c4" stroke-width="1.4" opacity="0.8"/>` +
                 `</g>` +
                 `<circle cx="50" cy="50" r="33" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 3" opacity="0.8" class="rk-gm-spin-rev"/>` +
-                `<polygon points="50,0 57,15 43,15" fill="${color}"/>`;
+                [[50, 4], [93, 50], [50, 96], [7, 50]].map(([x, y]) => miniSparkle(x, y, 3.2, '#fff3c4', 'rk-gm-spin')).join('') +
+                `<polygon points="50,0 58,16 50,12 42,16" fill="${gold}" stroke="${color}" stroke-width="1"/>` +
+                `<circle cx="50" cy="9" r="2.4" fill="#fff"/>`;
         } else {
-            const pts = ptsToStr(centerPoints(regularPolygonPts(tier.sides, 46)));
-            inner = `<polygon points="${pts}" fill="${color}22" stroke="${color}" stroke-width="5" stroke-linejoin="round"/>`;
+            const rawPts = centerPoints(regularPolygonPts(tier.sides, 46));
+            const pts = ptsToStr(rawPts);
+            const innerPts = scalePolygonPoints(pts, 0.6);
+            let extra = '';
+            let fill;
+            if (tier.name === 'ROOKIE') {
+                // Muted slate/carbon-fibre - deliberately the least ORNATE
+                // material in the set (no gems, no glow/pulse, no sparkle)
+                // so the jump in detail toward BRONZE and up actually reads
+                // as a step UP, but still a real faceted crest with a woven
+                // texture, not a bare flat-shaded placeholder.
+                fill = rankGrad(defs, 'linear', [[0, '#8a93a6'], [50, '#4a515c'], [100, '#2a2e35']], { x1: 0, y1: 0, x2: 100, y2: 100 });
+                const clipId = 'rkc' + (rankCrestUidCounter++);
+                defs.push(`<clipPath id="${clipId}"><polygon points="${pts}"/></clipPath>`);
+                let weave = `<g clip-path="url(#${clipId})" opacity="0.22" stroke="#000" stroke-width="2.2">`;
+                for (let i = -2; i <= 10; i++) weave += `<line x1="${i * 12 - 10}" y1="0" x2="${i * 12 + 100}" y2="100"/>`;
+                for (let i = -2; i <= 10; i++) weave += `<line x1="${i * 12 - 10}" y1="100" x2="${i * 12 + 100}" y2="0"/>`;
+                weave += `</g>`;
+                extra = weave + facetLines(rawPts, '#1a1d22', 0.3) +
+                    `<polygon points="${innerPts}" fill="none" stroke="#9aa2ac" stroke-width="1.3" opacity="0.5"/>`;
+            } else if (tier.name === 'BRONZE') {
+                // Weathered bronze/copper - warm highlight fading to a dark
+                // oxidised shadow, plus a few patina blotches.
+                fill = rankGrad(defs, 'linear', [[0, '#f0b27a'], [45, color], [100, '#4a2608']], { x1: 10, y1: 0, x2: 90, y2: 100 });
+                extra = facetLines(rawPts, '#5a2f12', 0.4) +
+                    [[30, 26, 5, 3.5], [68, 62, 5.5, 3], [40, 72, 4, 4]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#2d4a35" opacity="0.3"/>`).join('');
+            } else if (tier.name === 'SILVER') {
+                // Polished chrome - a hard mirror-like gradient with a
+                // bright specular streak, frost-white glow.
+                fill = rankGrad(defs, 'linear', [[0, '#ffffff'], [35, '#cdd8e4'], [60, '#8d9bac'], [100, '#eef3f8']], { x1: 0, y1: 0, x2: 100, y2: 100 });
+                extra = facetLines(rawPts, '#fff', 0.3) +
+                    `<rect x="14" y="44" width="72" height="6" fill="#fff" opacity="0.55" transform="rotate(-32 50 50)"/>`;
+            } else if (tier.name === 'GOLD') {
+                // Radiant auric gold - warm radial glow, gem-cut facets, a
+                // couple of sparkle accents.
+                fill = rankGrad(defs, 'radial', [[0, '#fff3c4'], [50, color], [100, '#8a5a00']], { cx: 38, cy: 28, r: 80 });
+                extra = `<polygon points="${innerPts}" fill="none" stroke="#fff3c4" stroke-width="1.5" opacity="0.8"/>` +
+                    facetLines(rawPts, '#8a5a00', 0.35) +
+                    miniSparkle(rawPts[0][0], rawPts[0][1], 4, '#fff', 'level-tier-pulse');
+            } else if (tier.name === 'PLATINUM') {
+                // Metallic cyan/electric turquoise.
+                fill = rankGrad(defs, 'linear', [[0, '#eafdff'], [45, color], [100, '#0c5a62']], { x1: 0, y1: 0, x2: 100, y2: 100 });
+                extra = `<polygon points="${innerPts}" fill="none" stroke="#eafdff" stroke-width="1.5" opacity="0.8"/>` +
+                    facetLines(rawPts, '#0c5a62', 0.4);
+            } else if (tier.name === 'DIAMOND') {
+                // Prismatic ice blue - a cool multi-stop "refraction" gradient,
+                // dense facet lines, twinkling glint accents.
+                fill = rankGrad(defs, 'linear', [[0, '#ffffff'], [25, '#cfe8ff'], [55, color], [80, '#d9c4ff'], [100, '#ffffff']], { x1: 0, y1: 0, x2: 100, y2: 100 });
+                extra = `<polygon points="${innerPts}" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.85"/>` +
+                    facetLines(rawPts, '#fff', 0.45) +
+                    miniSparkle(30, 32, 3.6, '#fff', 'level-tier-pulse') +
+                    miniSparkle(68, 64, 3, '#fff', 'level-tier-pulse');
+            } else if (tier.name === 'EMERALD') {
+                // Deep radioactive emerald - toxic-bright centre fading into
+                // an almost-black green, pulsing (see .level-tier-pulse,
+                // already defined for the LEVEL ROAD's own mid-tier glow).
+                fill = rankGrad(defs, 'radial', [[0, '#baffd8'], [45, color], [100, '#04170c']], { cx: 40, cy: 30, r: 85 });
+                extra = `<polygon points="${innerPts}" fill="none" stroke="#baffd8" stroke-width="1.5" opacity="0.8"/>` +
+                    facetLines(rawPts, '#04170c', 0.4);
+            } else if (tier.name === 'MASTERS') {
+                // Royal amethyst / deep violet void - light centre falling
+                // away into near-black, soft concentric aura rings standing
+                // in for a blurred glow (no filter needed), a slowly
+                // counter-rotating inner facet ring for a "void" feel.
+                fill = rankGrad(defs, 'radial', [[0, '#e8d4ff'], [45, color], [100, '#0c0314']], { cx: 40, cy: 28, r: 85 });
+                extra = `<g class="rk-gm-spin-rev">` +
+                    [46, 38, 30].map((r, i) => `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${color}" stroke-width="1" opacity="${(0.5 - i * 0.14).toFixed(2)}"/>`).join('') +
+                    `</g>` +
+                    `<polygon points="${innerPts}" fill="none" stroke="#e8d4ff" stroke-width="1.3" opacity="0.7"/>`;
+            }
+            inner = `<polygon points="${pts}" fill="${fill}" stroke="${color}" stroke-width="3.5" stroke-linejoin="round"/>` + extra;
         }
-        return `<svg class="rk-crest-svg" viewBox="0 0 100 100" style="color:${color}" aria-hidden="true">${inner}</svg>`;
+        const defsMarkup = defs.length ? `<defs>${defs.join('')}</defs>` : '';
+        return `<svg class="rk-crest-svg" viewBox="0 0 100 100" style="color:${color}" aria-hidden="true">${defsMarkup}${inner}</svg>`;
     }
 
     // How much RP is left before the NEXT tier starts, and that tier's
@@ -12669,6 +13344,152 @@
         if (!currentUser) return;
         const tier = rankTierFor(playerRankRating, isPlayerTop10);
         submitScoreToLeaderboard('ranked', 'rating', playerRankRating, tier.name + ' - ' + playerRankRating + ' RP');
+    }
+
+    // Keeps the small live crest on the Settings > ACCOUNT button in sync -
+    // called at boot and anywhere playerRankRating actually changes (see
+    // vsOnlineShowFinishScreen).
+    function updateRankGalleryButtonIcon() {
+        const el = document.getElementById('rank-gallery-btn-icon');
+        if (el) el.innerHTML = rankCrestSvg(rankTierIndexFor(playerRankRating, isPlayerTop10));
+    }
+
+    // ================================================================
+    // RANK TIER GALLERY - a browsable reference for all 9 tiers (opened
+    // from Settings > ACCOUNT), independent of the player's OWN rank -
+    // rgSelectedTier is just "whichever tier is currently shown in the
+    // detail pane", defaulting to the player's actual tier on open.
+    // ================================================================
+    let rgSelectedTier = 0;
+    function openRankGalleryModal() {
+        rgSelectedTier = rankTierIndexFor(playerRankRating, isPlayerTop10);
+        renderRankGalleryList();
+        renderRankGalleryDetail();
+        document.getElementById('rank-gallery-modal').style.display = 'flex';
+    }
+    function closeRankGalleryModal() {
+        document.getElementById('rank-gallery-modal').style.display = 'none';
+    }
+    function renderRankGalleryList() {
+        const list = document.getElementById('rg-list');
+        if (!list) return;
+        const myIdx = rankTierIndexFor(playerRankRating, isPlayerTop10);
+        list.innerHTML = RANK_TIERS.map((tier, i) => {
+            return `<button type="button" class="rg-list-item${i === rgSelectedTier ? ' active' : ''}" style="color:${tier.color}" onclick="selectGalleryRank(${i})">` +
+                `<span class="rg-list-crest">${rankCrestSvg(i)}</span>` +
+                `<span class="rg-list-name">${escapeHtml(tier.name)}</span>` +
+                (i === myIdx ? '<span class="rg-list-you">YOU</span>' : '') +
+                `</button>`;
+        }).join('');
+    }
+    function selectGalleryRank(i) {
+        rgSelectedTier = i;
+        document.querySelectorAll('#rg-list .rg-list-item').forEach((el, idx) => el.classList.toggle('active', idx === i));
+        renderRankGalleryDetail();
+    }
+    // Short lore line per tier, shown over the banner - purely flavour
+    // text, doesn't drive any game logic.
+    const RANK_FLAVOR = [
+        'Welcome to the grid. Prove your fundamentals to escape the ROOKIE tier.',
+        'The rust is wearing off. You\'re no longer a total unknown - but BRONZE is still just the beginning.',
+        'Clean, consistent, dependable. SILVER players win on fundamentals, not luck.',
+        'The grid shines brighter here. GOLD is where casual habits stop being enough.',
+        'Reflexes sharpen, mistakes shrink. PLATINUM separates the serious from the social.',
+        'Every piece placed with intent. DIAMOND is where the best regulars live.',
+        'A rare, radioactive edge. EMERALD players are feared in the queue.',
+        'The void opens for those who\'ve earned it. MASTERS stands above everyone but the very few.',
+        'Not a rating - a standing. GRANDMASTER belongs to the top 10 players alive, and no one else.'
+    ];
+    function renderRankGalleryDetail() {
+        const tier = RANK_TIERS[rgSelectedTier];
+        // Drives the banner glow, data card borders and progress card
+        // color for this tier - see --tier-accent on .rg-detail.
+        const detailEl = document.getElementById('rg-detail');
+        if (detailEl) detailEl.style.setProperty('--tier-accent', tier.color);
+        const bannerEl = document.getElementById('rg-detail-banner');
+        if (bannerEl) {
+            for (let i = 0; i < RANK_TIERS.length; i++) bannerEl.classList.remove('pc-rankbg-' + i);
+            bannerEl.classList.add('pc-rankbg-' + rgSelectedTier);
+        }
+        const crestEl = document.getElementById('rg-detail-crest');
+        if (crestEl) { crestEl.innerHTML = rankCrestSvg(rgSelectedTier); crestEl.style.color = tier.color; }
+        const nameEl = document.getElementById('rg-detail-name');
+        if (nameEl) { nameEl.innerText = tier.name; nameEl.style.color = tier.color; }
+        const flavorEl = document.getElementById('rg-detail-flavor');
+        if (flavorEl) flavorEl.innerText = RANK_FLAVOR[rgSelectedTier] || '';
+        const rangeEl = document.getElementById('rg-detail-range');
+        if (rangeEl) {
+            rangeEl.innerText = tier.max === Infinity
+                ? `${tier.min.toLocaleString()}+ RP`
+                : `${tier.min.toLocaleString()} – ${tier.max.toLocaleString()} RP`;
+        }
+        const formatEl = document.getElementById('rg-detail-format');
+        if (formatEl) formatEl.innerText = `First to ${tier.format} (FT${tier.format})`;
+        const gmEl = document.getElementById('rg-detail-gm');
+        if (gmEl) {
+            if (tier.name === 'GRANDMASTER') {
+                gmEl.style.display = 'block';
+                gmEl.innerText = 'GRANDMASTER requires BOTH 2,101+ RP AND a spot in the live TOP 10 global leaderboard. Falling out of the top 10 reverts the badge to MASTERS automatically - no separate demotion step.';
+            } else {
+                gmEl.style.display = 'none';
+            }
+        }
+
+        // "Your Progress" only makes sense on the tier you're ACTUALLY in
+        // right now - showing it under some other tier you're just
+        // browsing would read as a real gap/estimate when it isn't one.
+        const progCard = document.getElementById('rg-progress-card');
+        if (progCard) {
+            const myIdx = rankTierIndexFor(playerRankRating, isPlayerTop10);
+            if (currentUser && rgSelectedTier === myIdx) {
+                progCard.style.display = 'block';
+                document.getElementById('rg-progress-rp').innerText = playerRankRating.toLocaleString() + ' RP';
+                const fillEl = document.getElementById('rg-progress-fill');
+                const textEl = document.getElementById('rg-progress-text');
+                const progress = rankProgressInfo(playerRankRating);
+                if (progress) {
+                    fillEl.style.width = Math.min(100, (progress.into / progress.span) * 100) + '%';
+                    fillEl.style.background = tier.color;
+                    textEl.innerText = `${progress.into.toLocaleString()} / ${progress.span.toLocaleString()} RP to ${progress.nextName}`;
+                } else {
+                    fillEl.style.width = '100%';
+                    fillEl.style.background = tier.color;
+                    textEl.innerText = tier.name === 'GRANDMASTER' ? 'Top of the ladder - hold your spot in the top 10.' : 'Top of the ladder.';
+                }
+            } else {
+                progCard.style.display = 'none';
+            }
+        }
+
+        renderRankUnlocksGrid(rgSelectedTier);
+    }
+
+    // "Unlocks at this tier" preview grid - a Profile Banner thumbnail (the
+    // same .pc-rankbg-N art as the big banner above, just small), the rank
+    // title treatment, and a colour-matched accent frame swatch. Purely a
+    // showcase of what reaching this tier LOOKS like, not tied to the
+    // actual Customization Locker's unlock logic.
+    function renderRankUnlocksGrid(tierIdx) {
+        const grid = document.getElementById('rg-unlocks-grid');
+        if (!grid) return;
+        const tier = RANK_TIERS[tierIdx];
+        grid.innerHTML =
+            `<div class="rg-unlock-item">` +
+                `<div class="rg-unlock-thumb pc-rankbg-${tierIdx}"><div class="pc-banner-art"></div></div>` +
+                `<span class="rg-unlock-label">PROFILE BANNER</span>` +
+            `</div>` +
+            `<div class="rg-unlock-item">` +
+                `<div class="rg-unlock-thumb" style="color:${tier.color};">` +
+                    `<span class="rg-unlock-title-pill">${escapeHtml(tier.name)}</span>` +
+                `</div>` +
+                `<span class="rg-unlock-label">RANK TITLE</span>` +
+            `</div>` +
+            `<div class="rg-unlock-item">` +
+                `<div class="rg-unlock-thumb">` +
+                    `<div class="rg-unlock-frame-swatch" style="border-color:${tier.color}; box-shadow:0 0 14px ${tier.color}aa;"></div>` +
+                `</div>` +
+                `<span class="rg-unlock-label">ACCENT FRAME</span>` +
+            `</div>`;
     }
 
     // ================================================================
@@ -12775,17 +13596,23 @@
     function closeProfileCardModal() {
         document.getElementById('profile-card-modal').style.display = 'none';
     }
-    function renderProfileCard() {
+    // Updates one set of Profile Card DOM nodes, identified by an id
+    // prefix - 'pc' for the real card in #profile-card-modal, 'cl-preview'
+    // for the live preview embedded in the Customization Locker. Both sets
+    // share the exact same markup/classes, just different ids, so one
+    // function drives either (or both) without duplicating the render
+    // logic itself.
+    function applyProfileCardDom(idPrefix) {
         const name = getPlayerName() || 'Trainer';
-        const letterEl = document.getElementById('pc-avatar-letter');
+        const letterEl = document.getElementById(idPrefix + '-avatar-letter');
         if (letterEl) letterEl.innerText = (name.trim().charAt(0) || 'T').toUpperCase();
-        const nameEl = document.getElementById('pc-name');
+        const nameEl = document.getElementById(idPrefix + '-name');
         if (nameEl) {
             nameEl.innerText = name;
             NAME_FONTS.forEach(f => nameEl.classList.remove(f.cls));
             nameEl.classList.add(nameFontCls(playerCustomization.nameFont));
         }
-        const banner = document.getElementById('pc-banner');
+        const banner = document.getElementById(idPrefix + '-banner');
         if (banner) {
             BANNER_FRAMES.forEach(f => banner.classList.remove(f.cls));
             banner.classList.add(bannerFrameCls(playerCustomization.bannerFrame));
@@ -12793,20 +13620,19 @@
             const rankIdx = rankTierIndexFor(playerRankRating, isPlayerTop10);
             banner.classList.add('pc-rankbg-' + rankIdx);
         }
-        const levelBadgeEl = document.getElementById('pc-level-badge');
+        const levelBadgeEl = document.getElementById(idPrefix + '-level-badge');
         if (levelBadgeEl) {
             const tierIdx = profileCardBadgeTierIdx();
-            const sampleLevel = LEVEL_TIERS[tierIdx].min;
             levelBadgeEl.innerHTML = `<div class="prog-node-shape-wrap" style="width:100%;height:100%;margin:0;">` +
                 `<div class="prog-node-shape">${levelTierShapeSvg(progression.level, { color: LEVEL_TIERS[tierIdx].color })}</div>` +
                 `<div class="prog-node-num">${progression.level}</div></div>`;
         }
-        const rankCrestEl = document.getElementById('pc-rank-crest');
+        const rankCrestEl = document.getElementById(idPrefix + '-rank-crest');
         if (rankCrestEl) {
             const rankIdx = rankTierIndexFor(playerRankRating, isPlayerTop10);
             rankCrestEl.innerHTML = rankCrestSvg(rankIdx);
         }
-        const medalsEl = document.getElementById('pc-medals');
+        const medalsEl = document.getElementById(idPrefix + '-medals');
         if (medalsEl) {
             const unlocked = unlockedAchievements();
             const slots = [0, 1, 2].map(i => {
@@ -12820,6 +13646,10 @@
             });
             medalsEl.innerHTML = slots.join('');
         }
+    }
+    function renderProfileCard() {
+        applyProfileCardDom('pc');
+        applyProfileCardDom('cl-preview');
     }
 
     // ================================================================
@@ -13496,16 +14326,23 @@
         resumeAfterAuthGate();
     }
 
-    // Fire-and-forget on purpose - a failed submission (offline, momentary
-    // Supabase hiccup, RLS rejection) should never interrupt or error out
-    // the player's own run. It only ever adds one row to a public board;
-    // nothing about the local game depends on it succeeding.
+    // Fire-and-forget FOR THE PLAYER on purpose - a failed submission
+    // (offline, momentary Supabase hiccup, RLS rejection) should never
+    // interrupt or error out the player's own run. It only ever adds one
+    // row to a public board; nothing about the local game depends on it
+    // succeeding. It's no longer silent to the DEVELOPER CONSOLE though -
+    // every skip/failure reason gets a console.warn, since this used to
+    // fail completely invisibly (no error, no log, nothing), which made a
+    // "my score never showed up" report impossible to diagnose after the
+    // fact. Open the browser console next time this happens - it'll say
+    // exactly why (not signed in, insert rejected, network error, etc).
     // category is only meaningful for Survival (wave/distance/combined -
     // see LB_CATEGORIES) and stays null for every other mode.
     async function submitScoreToLeaderboard(mode, speedLabel, value, text, category = null) {
-        if (!sbClient || !currentUser) return;
+        if (!sbClient) { console.warn('[leaderboard] submit skipped - Supabase not configured'); return; }
+        if (!currentUser) { console.warn('[leaderboard] submit skipped - not signed in (guest runs never post to the global board)'); return; }
         try {
-            await sbClient.from('scores').insert({
+            const { error } = await sbClient.from('scores').insert({
                 player_name: getPlayerName(),
                 mode,
                 speed_label: speedLabel,
@@ -13513,7 +14350,8 @@
                 display_text: text,
                 category
             });
-        } catch (e) { /* best-effort - see comment above */ }
+            if (error) console.warn('[leaderboard] submit rejected:', error.message || error);
+        } catch (e) { console.warn('[leaderboard] submit failed (network/offline?):', e); }
     }
 
     async function fetchLeaderboard(mode, speedLabel, limit = 10, category = null) {
@@ -13529,6 +14367,36 @@
             if (error) return [];
             return data || [];
         } catch (e) { return []; }
+    }
+
+    // How many existing rows beat this exact value - +1 is this run's rank
+    // on that same board. A plain count query (head:true, no rows actually
+    // fetched) rather than pulling the whole table down just to find one
+    // number. Same mode/speedLabel/category scoping as fetchLeaderboard, so
+    // the placement always matches whatever board the row actually landed
+    // on - a separate round trip from the insert itself since Supabase's
+    // insert response doesn't hand back a rank.
+    async function getLeaderboardPlacement(mode, speedLabel, value, category = null) {
+        if (!sbClient) return null;
+        try {
+            let q = sbClient.from('scores').select('*', { count: 'exact', head: true })
+                .eq('mode', mode).eq('speed_label', speedLabel).gt('value', value);
+            q = category ? q.eq('category', category) : q.is('category', null);
+            const { count, error } = await q;
+            if (error || count == null) return null;
+            return count + 1;
+        } catch (e) { return null; }
+    }
+    // Fills in the placement line under NEW BEST once the count query
+    // resolves (see .new-best-placement) - fire-and-forget same as the
+    // submission, the results screen renders fine without it, this just
+    // upgrades it a beat later if/when the number comes back.
+    async function showLeaderboardPlacement(mode, speedLabel, value, category = null) {
+        const place = await getLeaderboardPlacement(mode, speedLabel, value, category);
+        const el = document.getElementById('go-new-best-placement');
+        if (!el || !place) return;
+        el.innerText = place === 1 ? '#1 ON THE LEADERBOARD!' : `#${place} on the leaderboard`;
+        el.style.display = 'block';
     }
 
     // Every mode the leaderboard knows about, and (for Survival only) the
@@ -16229,6 +17097,7 @@
             saveRankRating();
             submitRankRating();
             refreshRankLeaderboard();
+            updateRankGalleryButtonIcon();
         }
 
         // VS Online never routes through triggerGameOver (its own finish
@@ -18719,6 +19588,7 @@
         loadProgression();
         loadRankRating();
         loadCustomization();
+        updateRankGalleryButtonIcon();
         updateProgressionWidget();
         loadPuzzleProgress();
         updateVolumeUI();
@@ -19099,11 +19969,14 @@
         positionHandlingTicks();
     }
 
+    const SETTINGS_SUBTABS = ['gameplay', 'audio', 'appearance', 'account'];
     function switchSettingsSubtab(tab) {
-        document.getElementById('settings-subtab-general').classList.toggle('active', tab === 'general');
-        document.getElementById('settings-subtab-handling').classList.toggle('active', tab === 'handling');
-        document.getElementById('settings-grid-general').style.display = tab === 'general' ? 'grid' : 'none';
-        document.getElementById('settings-grid-handling').style.display = tab === 'handling' ? 'grid' : 'none';
+        SETTINGS_SUBTABS.forEach(t => {
+            const tabBtn = document.getElementById('settings-subtab-' + t);
+            const grid = document.getElementById('settings-grid-' + t);
+            if (tabBtn) tabBtn.classList.toggle('active', tab === t);
+            if (grid) grid.style.display = tab === t ? 'grid' : 'none';
+        });
     }
 
     const keys = { left: false, right: false, down: false };
@@ -20176,6 +21049,8 @@
       document.getElementById('overlay-title').innerText = titleText;
       document.getElementById('resumeBtn').style.display = 'none';
       document.getElementById('overlay-stats').style.display = 'grid';
+      const placementEl = document.getElementById('go-new-best-placement');
+      if (placementEl) { placementEl.style.display = 'none'; placementEl.innerText = ''; }
 
       // SURVIVAL CO-OP: PLAY AGAIN replaces RESTART (a lone local restart
       // would silently desync you from your ally - see coopRequestPlayAgain)
@@ -20308,7 +21183,11 @@
               // wave already, same unfair head start as distance/combined
               // get from it, so wave is gated the same way: 0m starts only.
               const survivalOk = gameMode !== 'survival' || survivalStartCheckpoint === 0;
-              if (!p1.isBot && survivalOk) submitScoreToLeaderboard(gameMode, variantLabel, result.value, result.text, gameMode === 'survival' ? 'wave' : null);
+              if (!p1.isBot && survivalOk) {
+                  const lbCategory = gameMode === 'survival' ? 'wave' : null;
+                  submitScoreToLeaderboard(gameMode, variantLabel, result.value, result.text, lbCategory);
+                  showLeaderboardPlacement(gameMode, variantLabel, result.value, lbCategory);
+              }
           }
           document.getElementById('go-best-label').innerText = isNewBest ? result.text : prevBest.text;
           bestRow.style.display = 'flex';
@@ -20339,7 +21218,10 @@
               // that started from an unlocked 400m/600m/800m checkpoint
               // reaches a bigger number without actually climbing that far,
               // so only a genuine 0m start ever reaches the global board.
-              if (!p1.isBot && survivalStartCheckpoint === 0) submitScoreToLeaderboard('survival', survVariant, survivalAltitudeM, altText, 'distance');
+              if (!p1.isBot && survivalStartCheckpoint === 0) {
+                  submitScoreToLeaderboard('survival', survVariant, survivalAltitudeM, altText, 'distance');
+                  showLeaderboardPlacement('survival', survVariant, survivalAltitudeM, 'distance');
+              }
           }
           document.getElementById('go-best-alt-label').innerText = isNewAltBest ? personalBests[altKey].text : prevAltBest.text;
           altRow.style.display = 'flex';
@@ -20360,7 +21242,10 @@
               saveBests();
               // Same reasoning as distance above - combined includes
               // distance, so it's just as distorted by a checkpoint start.
-              if (!p1.isBot && survivalStartCheckpoint === 0) submitScoreToLeaderboard('survival', survVariant, combValue, combText, 'combined');
+              if (!p1.isBot && survivalStartCheckpoint === 0) {
+                  submitScoreToLeaderboard('survival', survVariant, combValue, combText, 'combined');
+                  showLeaderboardPlacement('survival', survVariant, combValue, 'combined');
+              }
           }
       } else {
           altRow.style.display = 'none';
