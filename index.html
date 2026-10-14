@@ -9877,9 +9877,19 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.199';
+    const GAME_VERSION = '1.200';
 
     const PATCH_NOTES = [
+      {
+        version: '1.200',
+        date: '14 Oct 2026',
+        title: 'Found the real leaderboard bug - stale local records blocking every new one',
+        changes: [
+          { tag: 'fix', text: '<b>Found the actual reason leaderboard records stopped updating for some players, including on direct testing: a corrupted local "personal best" could get stuck forever.</b> A new record only submits to the global board when it beats your own locally-stored best (<code>result.value &gt; prevBest.value</code>) - but Sprint/Puzzles/Boss switched to storing NEGATED time values a while back, and Survival switched from a raw time to a wave count. A personal best saved under the OLD shape left a number a real new run could mathematically never beat (a positive leftover time for Sprint, for example, which no negative value can ever exceed) - so the game would keep saying "not a new best" forever, completely silently, with nothing visibly wrong.' },
+          { tag: 'fix', text: '<b>Confirmed on this account directly: `sprint@2.2x` and `survival@2.2x` were both stuck in the old shape</b> - fixed automatically now on load (Sprint/Puzzles/Boss get their sign corrected back to a real time, Survival\'s unrecoverable old-shape entry is cleared so the next run sets a clean new best) rather than needing a manual localStorage edit.' },
+          { tag: 'fix', text: '<b>The fix also runs after signing in, not just at boot</b> - the cloud sync used to merge in "whichever side has the higher number", which would happily pull a corrupted value back down from the cloud and undo a local fix on every sign-in. It\'s corrected on both sides now, and the corrected version gets pushed back up, so the cloud copy heals too instead of staying corrupt indefinitely.' }
+        ]
+      },
       {
         version: '1.199',
         date: '13 Oct 2026',
@@ -15244,6 +15254,7 @@
                     // synced - its own cloud data replaces local entirely,
                     // rather than merging in the previous account's bests.
                     personalBests = data.personal_bests || {};
+                    migratePersonalBestsShape();
                     try { localStorage.setItem(BESTS_KEY, JSON.stringify(personalBests)); } catch (e) {}
                     if (data.player_name) {
                         setPlayerName(data.player_name);
@@ -15266,6 +15277,14 @@
                             const localEntry = personalBests[key];
                             if (!localEntry || cloudEntry.value > localEntry.value) personalBests[key] = cloudEntry;
                         }
+                        // Normalizes whatever just got merged in - a stale
+                        // cloud entry (old shape) winning the comparison
+                        // above is exactly how a corrupted record survives
+                        // forever: fixed locally, re-synced from the cloud's
+                        // still-corrupted copy on the next sign-in, over and
+                        // over. This also re-pushes the fix below, so the
+                        // cloud copy heals too instead of staying corrupt.
+                        migratePersonalBestsShape();
                         try { localStorage.setItem(BESTS_KEY, JSON.stringify(personalBests)); } catch (e) {}
                     }
                     // Only adopts the cloud name if this browser never set one
@@ -17304,6 +17323,52 @@
     function loadBests() {
         try { personalBests = JSON.parse(localStorage.getItem(BESTS_KEY)) || {}; }
         catch (e) { personalBests = {}; }
+        if (migratePersonalBestsShape()) {
+            try { localStorage.setItem(BESTS_KEY, JSON.stringify(personalBests)); } catch (e) {}
+        }
+    }
+
+    // Fixes/discards personalBests entries stored in an OLDER shape than
+    // getRunResult() produces today - found this diagnosing "leaderboard
+    // records never submit" reports, including one from direct testing
+    // while signed in. isNewBest just compares result.value > prevBest.value
+    // (see triggerGameOver); a leftover entry from before a scoring
+    // convention changed can leave a number a legitimate new run can
+    // mathematically never beat, which silently blocks every future
+    // submission for that mode@variant forever - no error, no sign anything
+    // is wrong, the run just never reads as a "new best".
+    //   - Sprint/Puzzles/Boss: current convention always stores value <= 0
+    //     (NEGATED playTimeMs, so "higher/less-negative wins" reads as
+    //     "faster wins"). A positive value here predates that convention -
+    //     its sign is simply flipped, which exactly recovers the real time,
+    //     no record lost.
+    //   - Survival's plain `survival@VARIANT` key ranks by wave count,
+    //     which never realistically approaches four digits. A value that
+    //     large is a leftover from before Survival ranked by wave at all
+    //     (one found during this diagnosis held a raw time in
+    //     milliseconds) - there's no way to recover a wave number from
+    //     that old shape, so the entry is discarded; the next run just
+    //     sets a fresh local best.
+    // Runs on every load AND after every cloud merge (see
+    // syncPlayerDataOnSignIn), since the "whichever side has the higher
+    // value wins" merge would otherwise happily pull a corrupted cloud
+    // number back down forever, undoing this every time you sign in.
+    function migratePersonalBestsShape() {
+        let changed = false;
+        Object.keys(personalBests).forEach(key => {
+            const entry = personalBests[key];
+            if (!entry || typeof entry.value !== 'number') return;
+            const mode = key.split('@')[0];
+            if ((mode === 'sprint' || mode === 'puzzles' || mode === 'boss') && entry.value > 0) {
+                entry.value = -entry.value;
+                changed = true;
+            }
+            if (mode === 'survival' && entry.value > 1000) {
+                delete personalBests[key];
+                changed = true;
+            }
+        });
+        return changed;
     }
 
     function saveBests() {
