@@ -9877,9 +9877,37 @@
     // Staying on the 1.x line past .99 on purpose - the number after the dot
     // is a plain patch counter, not a decimal, so after 1.99 comes 1.100,
     // then 1.101, and so on. Never roll over to 2.0.
-    const GAME_VERSION = '1.200';
+    const GAME_VERSION = '1.203';
 
     const PATCH_NOTES = [
+      {
+        version: '1.203',
+        date: '14 Oct 2026',
+        title: 'The real round-2 bug, a regression fix, and cross-device accounts',
+        changes: [
+          { tag: 'fix', text: '<b>Found the actual cause of a new report: a FT3/FT5 series round 2 instantly killing the player who lost round 1.</b> Damage totals (vsoMyAttackTotal/vsoOpponentAttackApplied) reset to 0 at the start of every round, but a broadcast still in transit from the round that just ended - carrying that round\'s large final cumulative total - has no way to know that. Landing even a moment late, it reads as "a huge fresh attack just happened" and buries the brand new empty board instantly. Every attack/state broadcast is tagged with the round it belongs to now, and a message from a round that already ended is simply ignored instead of being misapplied.' },
+          { tag: 'fix', text: '<b>Fixed a regression from the previous disconnect-handling patch that was causing round 3 (and any ordinary round transition) to wrongly end the match as "opponent disconnected".</b> That fix correctly closed a real silent-failure gap, but was too broad - it treated the few-second pause between EVERY round in a continuing series as equivalent to the match actually being over, so any ordinary network blip during that gap forfeited a match that hadn\'t ended. It now only applies once the series itself is actually decided.' },
+          { tag: 'new', text: '<b>Signing into the same account now carries your settings, equipped cosmetics (Badge Slot/Name Font/Banner Frame/Showcase Medals) and account level/XP to a different device</b>, the same way lifetime stats and personal bests already have. Settings/cosmetics are plain preferences, so whichever device changed them most recently wins; level/XP merges like a personal best does - whichever device is further ahead wins, so signing in elsewhere can never roll your level back.' }
+        ]
+      },
+      {
+        version: '1.202',
+        date: '14 Oct 2026',
+        title: 'Found and fixed the split-brain match-end bug',
+        changes: [
+          { tag: 'fix', text: '<b>Found the exact cause of a real report: one player\'s board froze while the other got kicked to the menu saying "opponent disconnected", from the same match.</b> The K.O. signal (<code>game_over</code>) was sent exactly once with no retry - <code>match_start</code> already had one (a guest that never gets it asks again after 2.5s), but this one didn\'t. If that single packet got dropped, the winner never found out the match ended, so their OWN stall watchdog (not the disconnect-aware finish-screen path) eventually fired and kicked them out, while the loser\'s client finished its K.O. animation completely independently and reached a normal finish screen a few seconds later - whose own rematch wait then expired too, since the other side had already left. Two separate, correct-looking outcomes from one dropped packet.' },
+          { tag: 'fix', text: '<b>game_over now sends 3 times over about a second</b> instead of once, making total packet loss far less likely - safe to resend since the handler already ignores a repeat.' },
+          { tag: 'fix', text: '<b>Closed a silent gap in disconnect handling</b> - a disconnect detected during the ~7s window between a K.O. and the finish screen actually appearing (explosion, drift-away, WINNER!/LOSER banner) used to match none of the disconnect handler\'s cases and do nothing at all, leaving that player frozen with zero explanation. It now forfeits properly like any other disconnect.' }
+        ]
+      },
+      {
+        version: '1.201',
+        date: '14 Oct 2026',
+        title: 'VS Online broadcast handlers can no longer fail silently',
+        changes: [
+          { tag: 'fix', text: '<b>Every VS Online/Co-op broadcast handler (state, attack, match start, rematch, tab visibility, game over) is now wrapped in error handling</b> - a malformed or unexpected payload used to be able to throw inside the handler with nothing logged anywhere, which could silently cut that one update short (the opponent board failing to finish updating for that tick, for example) with zero visible error to explain why. It\'s caught and logged to the console now with the actual payload attached, and the match keeps going - the next broadcast a moment later still gets a fresh, valid payload and recovers on its own.' }
+        ]
+      },
       {
         version: '1.200',
         date: '14 Oct 2026',
@@ -12863,6 +12891,11 @@
     }
     function saveProgression() {
         try { localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression)); } catch (e) { /* ignore */ }
+        // Fire-and-forget, same reasoning as saveBests - player level/XP
+        // now follows a signed-in account across devices instead of being
+        // stuck in one browser (see syncPlayerDataOnSignIn's "higher level
+        // wins" merge on the way back down).
+        pushPlayerDataToCloud();
     }
 
     // XP needed to climb FROM `level` TO `level+1`. Bumped from the original
@@ -13566,6 +13599,10 @@
     }
     function saveCustomization() {
         try { localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(playerCustomization)); } catch (e) { /* ignore */ }
+        // Fire-and-forget, same reasoning as saveBests - equipped Badge
+        // Slot/Name Font/Banner Frame/Showcase Medals now follow a signed-
+        // in player across devices instead of being stuck in one browser.
+        pushPlayerDataToCloud();
     }
     // Clamped to a tier the player has actually REACHED - picking a feature
     // badge from a tier you haven't unlocked yet isn't an option here.
@@ -15266,6 +15303,23 @@
                     // accumulated under the previous account (or anonymously).
                     lifetimeStats = Object.assign({ totalPieces: 0, totalPlayMs: 0, totalDamage: 0, gamesPlayed: 0, matchesPlayed: 0, wins: 0, losses: 0 }, data.lifetime_stats || {});
                     try { localStorage.setItem(LIFETIME_STATS_KEY, JSON.stringify(lifetimeStats)); } catch (e) {}
+                    // Same reasoning again - a different account's settings/
+                    // equipped cosmetics/level replace this browser's,
+                    // rather than merging in whatever the previous account
+                    // (or an anonymous guest) had going.
+                    if (data.Settings) {
+                        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.Settings)); loadSettings(); } catch (e) {}
+                    }
+                    if (data.Customization) {
+                        playerCustomization = Object.assign({}, CUSTOMIZATION_DEFAULTS, data.Customization);
+                        try { localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(playerCustomization)); } catch (e) {}
+                        renderProfileCard();
+                    }
+                    if (data.Progression) {
+                        progression = Object.assign({ level: 1, xp: 0, claimed: [] }, data.Progression);
+                        try { localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression)); } catch (e) {}
+                        updateProgressionWidget();
+                    }
                 } else {
                     // Same account as last time (or the very first sync this
                     // browser has ever done) - reconcile per record, whichever
@@ -15304,6 +15358,34 @@
                         lifetimeStats = Object.assign({ totalPieces: 0, totalPlayMs: 0, totalDamage: 0, gamesPlayed: 0, matchesPlayed: 0, wins: 0, losses: 0 }, data.lifetime_stats);
                         try { localStorage.setItem(LIFETIME_STATS_KEY, JSON.stringify(lifetimeStats)); } catch (e) {}
                     }
+                    // Settings/cosmetics/level now follow the SAME account
+                    // across devices (not just this one browser) - the whole
+                    // point of being signed in. Settings/customization are
+                    // plain preferences with no "better" value to compare,
+                    // so the cloud copy (this account's latest, from
+                    // whichever device last changed it - saveSettings/
+                    // saveCustomization push immediately) simply wins.
+                    // Progression is real earned progress though, so it
+                    // merges like personal_bests above: whichever side is
+                    // further ahead wins, so signing in on a second device
+                    // can never roll a level back.
+                    if (data.Settings) {
+                        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.Settings)); loadSettings(); } catch (e) {}
+                    }
+                    if (data.Customization) {
+                        playerCustomization = Object.assign({}, CUSTOMIZATION_DEFAULTS, data.Customization);
+                        try { localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(playerCustomization)); } catch (e) {}
+                        renderProfileCard();
+                    }
+                    if (data.Progression) {
+                        const cloudAhead = data.Progression.level > progression.level ||
+                            (data.Progression.level === progression.level && (data.Progression.xp || 0) > (progression.xp || 0));
+                        if (cloudAhead) {
+                            progression = Object.assign({ level: 1, xp: 0, claimed: [] }, data.Progression);
+                            try { localStorage.setItem(PROGRESSION_KEY, JSON.stringify(progression)); } catch (e) {}
+                            updateProgressionWidget();
+                        }
+                    }
                 }
             }
             try { localStorage.setItem(LAST_SYNCED_USER_KEY, currentUser.id); } catch (e) {}
@@ -15319,6 +15401,21 @@
                 player_name: getPlayerName(),
                 personal_bests: personalBests,
                 lifetime_stats: lifetimeStats,
+                // Settings/customization/progression now ride along the
+                // same way personal_bests/lifetime_stats always have - see
+                // syncPlayerDataOnSignIn for how each gets reconciled on
+                // the way back down. saveSettings/saveCustomization/
+                // saveProgression all call this immediately after their
+                // own localStorage write, so the cloud copy is never more
+                // than one change behind whatever a signed-in player just did.
+                // Capitalized to match the actual columns on player_data
+                // (Settings/Customization/Progression, not lowercase) -
+                // they were added through the dashboard's Table Editor
+                // with that exact casing already in place; matching it
+                // here was simpler than renaming the live columns.
+                Settings: (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) { return null; } })(),
+                Customization: playerCustomization,
+                Progression: progression,
                 updated_at: new Date().toISOString()
             });
         } catch (e) { /* best-effort */ }
@@ -15408,6 +15505,18 @@
     let vsoOpponentAttackApplied = 0; // VS Online: cumulative damage I've actually applied from them
     let coopMyGarbageTotal = 0;       // Co-op: cumulative garbage I've fired
     let coopAllyGarbageApplied = 0;   // Co-op: cumulative garbage I've actually applied from my ally
+    // Bumped every time startGame begins a new VS Online/Co-op round (see
+    // startGame) - tags every 'attack' and 'state' broadcast so a message
+    // still in transit from the round that JUST ended can never be
+    // misapplied to the brand new round that already started. Found this
+    // diagnosing a real report: vsoMyAttackTotal/vsoOpponentAttackApplied
+    // reset to 0 at the start of every round, but a running-total message
+    // carrying the PREVIOUS round's large final total has no way to know
+    // that - landing even a moment late, it reads as "need to apply this
+    // huge amount of fresh damage", instantly burying the brand new empty
+    // board. Every handler below ignores a payload whose round doesn't
+    // match this client's own current one.
+    let vsoRoundSeq = 0;
 
     // The locked-block grid only actually changes at a lock/line-clear/
     // garbage-settle - most periodic broadcast ticks in between are really
@@ -16065,6 +16174,22 @@
         document.getElementById('vso-quick-searching').style.display = 'none';
     }
 
+    // Wraps a broadcast handler so a malformed/unexpected payload can never
+    // throw silently inside it - see the call sites in vsOnlineConnect for
+    // why this matters. Always notes remote activity FIRST, before the
+    // handler even runs - a bad payload proves the connection is alive just
+    // as much as a good one does, so the stall watchdog shouldn't start
+    // suspecting a disconnect over what's actually a data bug.
+    function vsoSafeHandle(eventName, handler) {
+        return (msg) => {
+            vsOnlineNoteRemoteActivity();
+            try {
+                handler(msg && msg.payload);
+            } catch (e) {
+                console.error(`[vsOnline] "${eventName}" handler threw on this payload - skipped, next broadcast should self-heal:`, e, msg && msg.payload);
+            }
+        };
+    }
     function vsOnlineConnect(code, role) {
         vsoRole = role;
         vsoRoomCode = code;
@@ -16088,17 +16213,27 @@
         // vsOnlineNoteRemoteActivity) - ANY message from the other side
         // proves the connection is actually alive, which is what the
         // silent-stall watchdog needs, not just the frequent 'state' ones.
-        vsoChannel.on('broadcast', { event: 'match_start' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleMatchStart(payload); });
-        vsoChannel.on('broadcast', { event: 'request_match_start' }, () => { vsOnlineNoteRemoteActivity(); vsOnlineHandleRequestMatchStart(); });
+        // vsoSafeHandle wraps the actual handler in a try/catch - an
+        // unexpected/malformed payload (a dropped field, an opponent on a
+        // slightly different version, a mid-broadcast disconnect leaving a
+        // partial payload) used to be able to throw INSIDE the handler with
+        // nothing logged anywhere, which could silently abort that one
+        // update (e.g. the opponent board's render never finishing for that
+        // tick) with no visible error to explain why. Now it's caught,
+        // logged with the actual bad payload attached, and skipped cleanly -
+        // the NEXT broadcast (a few hundred ms later for 'state') still
+        // gets a fresh, hopefully-valid payload and recovers on its own.
+        vsoChannel.on('broadcast', { event: 'match_start' }, vsoSafeHandle('match_start', vsOnlineHandleMatchStart));
+        vsoChannel.on('broadcast', { event: 'request_match_start' }, vsoSafeHandle('request_match_start', vsOnlineHandleRequestMatchStart));
         // These three only ever fire once a match is actually live, but the
         // listeners have to be registered before subscribe() either way.
-        vsoChannel.on('broadcast', { event: 'state' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleState(payload); });
-        vsoChannel.on('broadcast', { event: 'attack' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleAttack(payload); });
-        vsoChannel.on('broadcast', { event: 'game_over' }, () => { vsOnlineNoteRemoteActivity(); vsOnlineHandleGameOver(); });
-        vsoChannel.on('broadcast', { event: 'rematch_request' }, () => { vsOnlineNoteRemoteActivity(); vsOnlineHandleRematchRequest(); });
-        vsoChannel.on('broadcast', { event: 'rematch_start' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleRematchStart(payload); });
-        vsoChannel.on('broadcast', { event: 'next_round_start' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleNextRoundStart(payload); });
-        vsoChannel.on('broadcast', { event: 'tab_visibility' }, ({ payload }) => { vsOnlineNoteRemoteActivity(); vsOnlineHandleTabVisibility(payload); });
+        vsoChannel.on('broadcast', { event: 'state' }, vsoSafeHandle('state', vsOnlineHandleState));
+        vsoChannel.on('broadcast', { event: 'attack' }, vsoSafeHandle('attack', vsOnlineHandleAttack));
+        vsoChannel.on('broadcast', { event: 'game_over' }, vsoSafeHandle('game_over', vsOnlineHandleGameOver));
+        vsoChannel.on('broadcast', { event: 'rematch_request' }, vsoSafeHandle('rematch_request', vsOnlineHandleRematchRequest));
+        vsoChannel.on('broadcast', { event: 'rematch_start' }, vsoSafeHandle('rematch_start', vsOnlineHandleRematchStart));
+        vsoChannel.on('broadcast', { event: 'next_round_start' }, vsoSafeHandle('next_round_start', vsOnlineHandleNextRoundStart));
+        vsoChannel.on('broadcast', { event: 'tab_visibility' }, vsoSafeHandle('tab_visibility', vsOnlineHandleTabVisibility));
         vsoChannel.on('presence', { event: 'leave' }, vsOnlinePresenceLeave);
 
         vsoChannel.subscribe((status, err) => {
@@ -16520,7 +16655,31 @@
             matchResolved = true;
             alert(gameMode === 'survivalCoop' ? 'Your ally disconnected.' : 'Your opponent disconnected.');
             backToMenu();
+        } else if (vsoSeriesWins.me >= vsoSeriesFormat || vsoSeriesWins.opponent >= vsoSeriesFormat) {
+            // matchResolved is true but vsoShowingFinishScreen isn't yet,
+            // AND the series is already decided (someone's hit the win
+            // target) - this is the ~7s window between the deciding KO and
+            // the real finish screen actually appearing (explosion,
+            // drift-away, WINNER!/LOSER banner - see
+            // vsOnlineStartFinishSequence). A disconnect landing here used
+            // to hit none of the branches above and silently do nothing,
+            // leaving this player frozen with no explanation. Treat it the
+            // same as an ordinary mid-match disconnect.
+            alert(gameMode === 'survivalCoop' ? 'Your ally disconnected.' : 'Your opponent disconnected.');
+            backToMenu();
         }
+        // else: matchResolved is true, the series is NOT yet decided - this
+        // is the completely ordinary few-second gap between rounds within
+        // an FT3/FT5 that hasn't finished (the exact same KO/banner window
+        // above, just for a round that doesn't end the match). This used to
+        // ALSO get caught by the branch above before it checked
+        // vsoSeriesWins, which meant perfectly ordinary mid-series network
+        // jitter during ANY round's end-of-round pause could wrongly forfeit
+        // a match that was never actually over - every round transition
+        // rolled the dice on a false "opponent disconnected". Silently
+        // doing nothing here is intentional once again: each side's local
+        // timer chain carries it into the next round on its own regardless
+        // of what the other side is doing at this exact instant.
     }
 
     // Records that SOMETHING just arrived from the other side - called from
@@ -16671,7 +16830,13 @@
             // them, and (in Co-op) incoming garbage stops right along with
             // it. This lets the very next regular snapshot fix that
             // automatically instead of the match just hanging.
-            hidden: vsoLocalTabHidden
+            hidden: vsoLocalTabHidden,
+            // Tags this snapshot with the round it belongs to - see
+            // vsoRoundSeq's own comment for why this matters (a snapshot
+            // still in transit from the round that just ended must never
+            // be allowed to self-heal a "missing" attack into the brand
+            // new round that's already started).
+            round: vsoRoundSeq
         };
         if (playfieldChanged) payload.playfield = p.playfield;
         // SURVIVAL CO-OP - the ally's wave/garbage-dial readout (see
@@ -16807,7 +16972,17 @@
         // of what we've actually applied, a dropped 'attack' broadcast is
         // the gap - apply the missing damage to our own real board now
         // instead of it being lost for the rest of the match.
-        if (gameMode === 'vsonline' && payload.attackTotal !== undefined && payload.attackTotal > vsoOpponentAttackApplied) {
+        if (gameMode === 'vsonline' && payload.round !== undefined && payload.round !== vsoRoundSeq) {
+            // A snapshot from the round that already ended - most of this
+            // payload would just be re-overwriting p2 with stale data that
+            // the very next (current-round) snapshot will immediately
+            // correct anyway, EXCEPT the attackTotal self-heal below, which
+            // is actively destructive if applied: it would read the
+            // previous round's final damage total as still "missing" and
+            // dump it onto the fresh board as a huge garbage attack. Safer
+            // to skip the whole stale snapshot than to let only the one
+            // dangerous field through.
+        } else if (gameMode === 'vsonline' && payload.attackTotal !== undefined && payload.attackTotal > vsoOpponentAttackApplied) {
             const p1 = players[0];
             const missing = payload.attackTotal - vsoOpponentAttackApplied;
             vsoOpponentAttackApplied = payload.attackTotal;
@@ -16839,6 +17014,12 @@
     // message arrived late), myTotal is no longer ahead of what's already
     // applied and this becomes a no-op instead of double-applying it.
     function vsOnlineHandleAttack(payload) {
+        // Stale - this attack belongs to a round that already ended (see
+        // vsoRoundSeq). vsoOpponentAttackApplied was already reset to 0 for
+        // the new round, so without this check a late-arriving final hit
+        // from the LAST round would read as a huge fresh attack and bury
+        // the brand new board instantly.
+        if (payload.round !== undefined && payload.round !== vsoRoundSeq) return;
         const p1 = players[0];
         const p2 = players[1];
         const newTotal = payload.myTotal;
@@ -16853,8 +17034,27 @@
         }
     }
 
+    // Resent 3 times over ~1s instead of once - found this while diagnosing
+    // a real report: match_start already had a retry-on-timeout (see
+    // vsoMatchStartRetryTimer/request_match_start) because a broadcast CAN
+    // just get dropped, but game_over had no such safety net. If that one
+    // packet is lost, the winner never learns the match ended - their own
+    // matchResolved stays false, so their stall watchdog (not the
+    // disconnect-aware finish-screen path) eventually fires and kicks them
+    // to the menu as "opponent disconnected", while the loser's own client
+    // finishes its KO animation independently and reaches a normal finish
+    // screen a few seconds later, whose own rematch wait then also expires
+    // since the other side already left - a real split-brain ending from
+    // one dropped packet. vsOnlineHandleGameOver already no-ops once the
+    // mirror is marked gameOver (`if (!p2 || p2.gameOver) return;`), so
+    // sending this extra couple of times is harmless even when the first
+    // one DOES land.
     function vsOnlineSendGameOver() {
-        if (vsoChannel) vsoChannel.send({ type: 'broadcast', event: 'game_over', payload: {} });
+        if (!vsoChannel) return;
+        const send = () => { if (vsoChannel) vsoChannel.send({ type: 'broadcast', event: 'game_over', payload: {} }); };
+        send();
+        setTimeout(send, 400);
+        setTimeout(send, 900);
     }
 
     // The opponent told us THEY topped out - run the exact same K.O. visual
@@ -17199,6 +17399,10 @@
                 handlingPreset: document.getElementById('handlingPresetSelect') ? document.getElementById('handlingPresetSelect').value : 'classic'
             }));
         } catch (e) { /* localStorage unavailable (private browsing, etc.) */ }
+        // Fire-and-forget, same reasoning as saveBests - a signed-in
+        // player's settings now follow them to another device, the same
+        // way personal bests already do.
+        pushPlayerDataToCloud();
     }
 
     function showSpeedUpBanner() {
@@ -29006,7 +29210,7 @@
                  vsoChannel.send({
                      type: 'broadcast',
                      event: 'attack',
-                     payload: { damage, myTotal: vsoMyAttackTotal, releaseColor: b2bReleaseAttack ? b2bReleaseColor : null }
+                     payload: { damage, myTotal: vsoMyAttackTotal, releaseColor: b2bReleaseAttack ? b2bReleaseColor : null, round: vsoRoundSeq }
                  });
              }
 
@@ -32625,6 +32829,7 @@
       // every way a new round can start, instead of needing to remember it
       // at each individual match-start/rematch/next-round call site.
       vsoMyAttackTotal = 0; vsoOpponentAttackApplied = 0;
+      vsoRoundSeq++;
       coopMyGarbageTotal = 0; coopAllyGarbageApplied = 0;
       // Forces the very first post-start broadcast to include a full
       // playfield (see vsOnlineBroadcastState) instead of possibly reading
